@@ -3,6 +3,7 @@ package com.mongsom.dev.repository;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -35,4 +36,12 @@ public interface ProductImgRepository extends JpaRepository<ProductImg, Integer>
     // 특정 이미지 URL 존재 여부 확인
     @Query("SELECT COUNT(pi) > 0 FROM ProductImg pi WHERE pi.productImgUrl = :imageUrl")
     boolean existsByProductImgUrl(@Param("imageUrl") String imageUrl);
+    
+    // 상품 ID로 이미지 전체 삭제
+    @Modifying
+    @Query("DELETE FROM ProductImg p WHERE p.productId = :productId")
+    void deleteByProductId(@Param("productId") Integer productId);
+    
+    // 상품 ID와 이미지 URL로 존재 여부 확인
+    boolean existsByProductIdAndProductImgUrl(Integer productId, String productImgUrl);
 }

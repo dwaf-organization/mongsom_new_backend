@@ -354,7 +354,7 @@ public class AdminProductService {
             Product product = productRepository.findByIdOnly(productId)
                     .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 상품입니다. productId: " + productId));
             
-            // 2. 상품 기본 정보 수정
+            // 2. 상품 기본 정보 수정 (stockStatus, isAvailable 포함)
             product.updateProduct(
                 reqDto.getName(),
                 reqDto.getContents(), 
@@ -363,10 +363,13 @@ public class AdminProductService {
                 reqDto.getSalesMargin(),
                 reqDto.getDiscountPer(),
                 reqDto.getDiscountPrice(),
-                reqDto.getDeliveryPrice()
+                reqDto.getDeliveryPrice(),
+                reqDto.getStockStatus(),
+                reqDto.getIsAvailable()
             );
             
-            log.info("상품 기본 정보 수정 완료");
+            log.info("상품 기본 정보 수정 완료 - stockStatus: {}, isAvailable: {}", 
+                    reqDto.getStockStatus(), reqDto.getIsAvailable());
             
             AdminProductUpdateRespDto.UpdateSummary summary = AdminProductUpdateRespDto.UpdateSummary.builder()
                     .updatedImages(0)
@@ -380,46 +383,39 @@ public class AdminProductService {
                     .deletedOptionValues(0)
                     .build();
             
-            // 3. 이미지 수정
-            if (reqDto.getProductImages() != null) {
-                log.info("이미지 수정 시작 - 개수: {}", reqDto.getProductImages().size());
+            // 3. 이미지 전체 삭제 후 재생성
+            if (reqDto.getProductImages() != null && !reqDto.getProductImages().isEmpty()) {
+                log.info("이미지 전체 교체 시작 - 새 이미지 개수: {}", reqDto.getProductImages().size());
                 
+                // 3-1. 기존 이미지 전체 삭제
+                List<ProductImg> existingImages = productImgRepository.findByProductId(productId);
+                int deletedCount = existingImages.size();
+                productImgRepository.deleteByProductId(productId);
+                summary.setDeletedImages(deletedCount);
+                log.info("기존 이미지 전체 삭제 완료 - 삭제된 개수: {}", deletedCount);
+                
+                // 3-2. 새 이미지 생성
+                int addedCount = 0;
                 for (AdminProductUpdateReqDto.ProductImageDto imageDto : reqDto.getProductImages()) {
-                    if (imageDto.getIsDeleted()) {
-                        // 삭제
-                        if (imageDto.getProductImgId() != null) {
-                            productImgRepository.deleteById(imageDto.getProductImgId());
-                            summary.setDeletedImages(summary.getDeletedImages() + 1);
-                            log.info("이미지 삭제 - ID: {}", imageDto.getProductImgId());
-                        }
-                    } else if (imageDto.getProductImgId() == null) {
-                        // 신규 추가
+                    if (imageDto.getIsDeleted() == 0) { // 삭제되지 않은 이미지만 생성
                         ProductImg newImg = ProductImg.builder()
                                 .productId(productId)
                                 .productImgUrl(imageDto.getProductImgUrl())
                                 .build();
                         productImgRepository.save(newImg);
-                        summary.setAddedImages(summary.getAddedImages() + 1);
-                        log.info("이미지 추가 - URL: {}", imageDto.getProductImgUrl());
-                    } else {
-                        // 기존 수정
-                        ProductImg existingImg = productImgRepository.findById(imageDto.getProductImgId())
-                                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 이미지입니다."));
-                        existingImg.updateImageUrl(imageDto.getProductImgUrl());
-                        productImgRepository.save(existingImg);
-                        summary.setUpdatedImages(summary.getUpdatedImages() + 1);
-                        log.info("이미지 수정 - ID: {}", imageDto.getProductImgId());
+                        addedCount++;
                     }
                 }
-                log.info("이미지 수정 완료");
+                summary.setAddedImages(addedCount);
+                log.info("새 이미지 생성 완료 - 생성된 개수: {}", addedCount);
             }
             
-            // 4. 옵션 수정
+            // 4. 옵션 수정 (기존 방식 유지)
             if (reqDto.getOptionTypes() != null) {
                 log.info("옵션 수정 시작 - 옵션타입 개수: {}", reqDto.getOptionTypes().size());
                 
                 for (AdminProductUpdateReqDto.OptionTypeDto optionTypeDto : reqDto.getOptionTypes()) {
-                    if (optionTypeDto.getIsDeleted()) {
+                    if (optionTypeDto.getIsDeleted() == 1) {
                         // 옵션 타입 삭제
                         if (optionTypeDto.getOptionTypeId() != null) {
                             productOptionTypeRepository.deleteById(optionTypeDto.getOptionTypeId());
@@ -445,8 +441,11 @@ public class AdminProductService {
                         // 기존 옵션 타입 수정
                         optionType = productOptionTypeRepository.findById(optionTypeDto.getOptionTypeId())
                                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 옵션 타입입니다."));
-                        optionType.updateTypeName(optionTypeDto.getTypeName());
-                        optionType.updateSortOrder(optionTypeDto.getSortOrder());
+                        optionType.updateAll(
+                            optionTypeDto.getTypeName(),
+                            optionTypeDto.getIsRequired(),
+                            optionTypeDto.getSortOrder()
+                        );
                         optionType = productOptionTypeRepository.save(optionType);
                         summary.setUpdatedOptionTypes(summary.getUpdatedOptionTypes() + 1);
                         log.info("옵션타입 수정 - ID: {}", optionTypeDto.getOptionTypeId());
@@ -455,7 +454,7 @@ public class AdminProductService {
                     // 5. 옵션 값 수정
                     if (optionTypeDto.getOptionValues() != null) {
                         for (AdminProductUpdateReqDto.OptionValueDto optionValueDto : optionTypeDto.getOptionValues()) {
-                            if (optionValueDto.getIsDeleted()) {
+                            if (optionValueDto.getIsDeleted() == 1) {
                                 // 옵션 값 삭제
                                 if (optionValueDto.getOptionValueId() != null) {
                                     productOptionValueRepository.deleteById(optionValueDto.getOptionValueId());
@@ -478,8 +477,12 @@ public class AdminProductService {
                                 // 기존 옵션 값 수정
                                 ProductOptionValue optionValue = productOptionValueRepository.findById(optionValueDto.getOptionValueId())
                                         .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 옵션 값입니다."));
-                                optionValue.updateValueName(optionValueDto.getValueName());
-                                optionValue.updatePriceAdjustment(optionValueDto.getPriceAdjustment());
+                                optionValue.updateAll(
+                                    optionValueDto.getValueName(),
+                                    optionValueDto.getPriceAdjustment(),
+                                    optionValueDto.getStockStatus(),
+                                    optionValueDto.getSortOrder()
+                                );
                                 productOptionValueRepository.save(optionValue);
                                 summary.setUpdatedOptionValues(summary.getUpdatedOptionValues() + 1);
                                 log.info("옵션값 수정 - ID: {}", optionValueDto.getOptionValueId());

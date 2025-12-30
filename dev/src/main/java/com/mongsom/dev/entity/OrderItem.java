@@ -71,9 +71,16 @@ public class OrderItem {
     @Column(name = "final_price", nullable = false)
     private Integer finalPrice;
     
+    @Column(name = "used_mileage", nullable = false)
+    @Builder.Default
+    private Integer usedMileage = 0; // 사용 마일리지
+    
     @Column(name = "delivery_status", nullable = false)
     @Builder.Default
     private String deliveryStatus = "";
+    
+    @Column(name = "delivery_status_reason")
+    private String deliveryStatusReason; // 일반결제, 무통장입금
     
     @Column(name = "payment_at")
     private LocalDateTime paymentAt;
@@ -83,13 +90,6 @@ public class OrderItem {
     
     @Column(name = "invoice_num")
     private String invoiceNum;
-    
-    @Column(name = "change_state")
-    private Integer changeState;
-    
-    @Column(name = "approval_change_status")
-    @Builder.Default
-    private Integer approvalChangeStatus = 0;  // 0=승인대기, 1=승인, 2=반려
     
     @CreationTimestamp
     @Column(name = "created_at")

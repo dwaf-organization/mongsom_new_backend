@@ -64,6 +64,10 @@ public class User {
     @Column(name = "provider", nullable = false)
     private String provider;
     
+    @Column(name = "mileage", nullable = false)
+    @Builder.Default
+    private Integer mileage = 0;
+    
     @PrePersist
     public void prePersist() {
         if (this.status == null) {
@@ -122,5 +126,22 @@ public class User {
     // 탈퇴 시 email 변경
     public void updateEmailForWithdrawal(String withdrawnEmail) {
         this.email = withdrawnEmail;
+    }
+    
+    // 마일리지 관련 메서드
+    public void useMileage(Integer amount) {
+        if (this.mileage >= amount) {
+            this.mileage -= amount;
+        } else {
+            throw new IllegalArgumentException("보유 마일리지가 부족합니다.");
+        }
+    }
+    
+    public void addMileage(Integer amount) {
+        this.mileage += amount;
+    }
+    
+    public boolean canUseMileage(Integer amount) {
+        return this.mileage >= amount;
     }
 }

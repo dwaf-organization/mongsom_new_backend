@@ -74,6 +74,21 @@ public class ProductOptionValue {
         this.priceAdjustment = priceAdjustment;
     }
     
+    public void updateStockStatus(Integer stockStatus) {
+        this.stockStatus = stockStatus;
+    }
+    
+    public void updateSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
+    }
+    
+    public void updateAll(String valueName, Integer priceAdjustment, Integer stockStatus, Integer sortOrder) {
+        this.valueName = valueName;
+        this.priceAdjustment = priceAdjustment;
+        this.stockStatus = stockStatus;
+        this.sortOrder = sortOrder;
+    }
+    
     // 가격 관련 메서드
     public Integer calculatePrice(Integer basePrice) {
         return basePrice + priceAdjustment;

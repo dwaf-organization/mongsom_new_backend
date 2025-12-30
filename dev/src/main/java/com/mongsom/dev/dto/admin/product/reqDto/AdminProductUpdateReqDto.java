@@ -61,7 +61,9 @@ public class AdminProductUpdateReqDto {
         @NotBlank(message = "이미지 URL은 필수입니다.")
         private String productImgUrl;
         
-        private Boolean isDeleted = false; // true면 삭제 대상
+        @NotNull(message = "삭제 여부는 필수입니다.")
+        @Builder.Default
+        private Integer isDeleted = 0; // 1이면 삭제 대상
     }
     
     @Data
@@ -79,7 +81,9 @@ public class AdminProductUpdateReqDto {
         
         private Integer sortOrder; // 표시 순서
         
-        private Boolean isDeleted = false; // true면 삭제 대상
+        @NotNull(message = "삭제 여부는 필수입니다.")
+        @Builder.Default
+        private Integer isDeleted = 0; // 1이면 삭제 대상
         
         @Valid
         private List<OptionValueDto> optionValues;
@@ -102,6 +106,8 @@ public class AdminProductUpdateReqDto {
         
         private Integer sortOrder; // 표시 순서
         
-        private Boolean isDeleted = false; // true면 삭제 대상
+        @NotNull(message = "삭제 여부는 필수입니다.")
+        @Builder.Default
+        private Integer isDeleted = 0; // 1이면 삭제 대상
     }
 }

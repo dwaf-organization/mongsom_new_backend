@@ -142,34 +142,65 @@ public class AdminProductController {
         return ResponseEntity.status(status).body(response);
     }
 
-    // 상품 수정
+ // 상품 수정
     @PutMapping("/update/{productId}")
     public ResponseEntity<RespDto<AdminProductUpdateRespDto>> updateProduct(
             @PathVariable("productId") Integer productId,
             @Valid @RequestBody AdminProductUpdateReqDto reqDto) {
-        
+
         log.info("=== 관리자 상품 수정 요청 ===");
         log.info("상품 ID: {}", productId);
         log.info("상품명: {}", reqDto.getName());
         log.info("이미지 개수: {}", reqDto.getProductImages() != null ? reqDto.getProductImages().size() : 0);
         log.info("옵션타입 개수: {}", reqDto.getOptionTypes() != null ? reqDto.getOptionTypes().size() : 0);
-        
+
         // 수정 상세 로깅
         if (reqDto.getProductImages() != null) {
-            long newImages = reqDto.getProductImages().stream().filter(img -> img.getProductImgId() == null).count();
-            long deletedImages = reqDto.getProductImages().stream().filter(img -> img.getIsDeleted()).count();
-            log.info("이미지 - 신규: {}, 삭제: {}", newImages, deletedImages);
+            long newImages = reqDto.getProductImages().stream()
+                    .filter(img -> img.getProductImgId() == null && img.getIsDeleted() == 0)
+                    .count();
+            long deletedImages = reqDto.getProductImages().stream()
+                    .filter(img -> img.getIsDeleted() == 1)
+                    .count();
+            long updatedImages = reqDto.getProductImages().stream()
+                    .filter(img -> img.getProductImgId() != null && img.getIsDeleted() == 0)
+                    .count();
+            log.info("이미지 - 신규: {}, 수정: {}, 삭제: {}", newImages, updatedImages, deletedImages);
         }
-        
+
         if (reqDto.getOptionTypes() != null) {
-            long newOptionTypes = reqDto.getOptionTypes().stream().filter(opt -> opt.getOptionTypeId() == null).count();
-            long deletedOptionTypes = reqDto.getOptionTypes().stream().filter(opt -> opt.getIsDeleted()).count();
-            log.info("옵션타입 - 신규: {}, 삭제: {}", newOptionTypes, deletedOptionTypes);
+            long newOptionTypes = reqDto.getOptionTypes().stream()
+                    .filter(opt -> opt.getOptionTypeId() == null && opt.getIsDeleted() == 0)
+                    .count();
+            long deletedOptionTypes = reqDto.getOptionTypes().stream()
+                    .filter(opt -> opt.getIsDeleted() == 1)
+                    .count();
+            long updatedOptionTypes = reqDto.getOptionTypes().stream()
+                    .filter(opt -> opt.getOptionTypeId() != null && opt.getIsDeleted() == 0)
+                    .count();
+            log.info("옵션타입 - 신규: {}, 수정: {}, 삭제: {}", newOptionTypes, updatedOptionTypes, deletedOptionTypes);
+            
+            // 옵션값 통계
+            long totalOptionValues = reqDto.getOptionTypes().stream()
+                    .filter(opt -> opt.getOptionValues() != null)
+                    .flatMap(opt -> opt.getOptionValues().stream())
+                    .count();
+            long newOptionValues = reqDto.getOptionTypes().stream()
+                    .filter(opt -> opt.getOptionValues() != null)
+                    .flatMap(opt -> opt.getOptionValues().stream())
+                    .filter(val -> val.getOptionValueId() == null && val.getIsDeleted() == 0)
+                    .count();
+            long deletedOptionValues = reqDto.getOptionTypes().stream()
+                    .filter(opt -> opt.getOptionValues() != null)
+                    .flatMap(opt -> opt.getOptionValues().stream())
+                    .filter(val -> val.getIsDeleted() == 1)
+                    .count();
+            log.info("옵션값 - 전체: {}, 신규: {}, 삭제: {}", totalOptionValues, newOptionValues, deletedOptionValues);
         }
-        
+
         RespDto<AdminProductUpdateRespDto> response = adminProductService.updateProduct(productId, reqDto);
         HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
-        
+
         log.info("상품 수정 결과 - code: {}", response.getCode());
         if (response.getData() != null && response.getData().getUpdateSummary() != null) {
             AdminProductUpdateRespDto.UpdateSummary summary = response.getData().getUpdateSummary();
@@ -178,7 +209,7 @@ public class AdminProductController {
                     summary.getAddedOptionTypes(), summary.getUpdatedOptionTypes(), summary.getDeletedOptionTypes(),
                     summary.getAddedOptionValues(), summary.getUpdatedOptionValues(), summary.getDeletedOptionValues());
         }
-        
+
         return ResponseEntity.status(status).body(response);
     }
     

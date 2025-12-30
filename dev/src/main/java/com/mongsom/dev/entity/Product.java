@@ -134,4 +134,34 @@ public class Product {
     public boolean isDeleted() {
         return this.deleteStatus == 1;
     }
+    
+    public void updateProduct(String name, String contents, Integer basePrice, 
+            Integer premium, Integer salesMargin, Integer discountPer, 
+            Integer discountPrice, Integer deliveryPrice,
+            Integer stockStatus, Integer isAvailable) {
+		this.name = name;
+		this.contents = contents;
+		this.basePrice = basePrice;
+		this.premium = premium;
+		this.salesMargin = salesMargin;
+		this.discountPer = discountPer;
+		this.discountPrice = discountPrice;
+		this.deliveryPrice = deliveryPrice;
+		this.stockStatus = stockStatus;
+		this.isAvailable = isAvailable;
+	}
+		
+		//또는 개별 업데이트 메서드들
+	public void updateStockStatus(Integer stockStatus) {
+		this.stockStatus = stockStatus;
+	}
+		
+	public void updateAvailability(Integer isAvailable) {
+		this.isAvailable = isAvailable;
+	}
+		
+	public void updateStockAndAvailability(Integer stockStatus, Integer isAvailable) {
+		this.stockStatus = stockStatus;
+		this.isAvailable = isAvailable;
+	}
 }

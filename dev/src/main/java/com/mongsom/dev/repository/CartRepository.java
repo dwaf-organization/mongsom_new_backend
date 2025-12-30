@@ -39,14 +39,14 @@ public interface CartRepository extends JpaRepository<Cart, Integer> {
     // 특정 상품이 이미 장바구니에 있는지 확인 (옵션 조합 포함)
     @Query("SELECT c FROM Cart c WHERE c.userCode = :userCode AND c.productId = :productId " +
            "AND (:combinationId IS NULL AND c.combinationId IS NULL OR c.combinationId = :combinationId)")
-    List<Cart> findByUserCodeAndProductIdAndCombinationId(
+    Optional<Cart> findByUserCodeAndProductIdAndCombinationId(
             @Param("userCode") Long userCode, 
             @Param("productId") Integer productId, 
             @Param("combinationId") Integer combinationId);
     
     // 옵션이 없는 상품 장바구니 조회
     @Query("SELECT c FROM Cart c WHERE c.userCode = :userCode AND c.productId = :productId AND c.combinationId IS NULL")
-    List<Cart> findByUserCodeAndProductIdAndCombinationIdIsNull(
+    Optional<Cart> findByUserCodeAndProductIdAndCombinationIdIsNull(
             @Param("userCode") Long userCode, 
             @Param("productId") Integer productId);
     
@@ -99,4 +99,33 @@ public interface CartRepository extends JpaRepository<Cart, Integer> {
     int deleteByUserCodeAndProductIdAndCombinationIdIsNull(
             @Param("userCode") Long userCode,
             @Param("productId") Integer productId);
+
+    /**
+     * 사용자별 장바구니 조회 (상품, 옵션조합 정보 포함)
+     */
+    @Query("SELECT c FROM Cart c " +
+           "LEFT JOIN FETCH c.product p " +
+           "LEFT JOIN FETCH c.optionCombination oc " +
+           "WHERE c.userCode = :userCode " +
+           "ORDER BY c.createdAt DESC")
+    List<Cart> findByUserCodeWithDetails(@Param("userCode") Long userCode);
+
+    /**
+     * 장바구니 수량 업데이트
+     */
+    @Modifying
+    @Query("UPDATE Cart c SET c.quantity = :quantity WHERE c.userCode = :userCode AND c.productId = :productId AND c.combinationId = :combinationId")
+    int updateQuantityByUserCodeAndProductIdAndCombinationId(@Param("userCode") Long userCode,
+                                                             @Param("productId") Integer productId, 
+                                                             @Param("combinationId") Integer combinationId,
+                                                             @Param("quantity") Integer quantity);
+
+    /**
+     * 옵션 없는 상품 수량 업데이트
+     */
+    @Modifying
+    @Query("UPDATE Cart c SET c.quantity = :quantity WHERE c.userCode = :userCode AND c.productId = :productId AND c.combinationId IS NULL")
+    int updateQuantityByUserCodeAndProductIdAndCombinationIdIsNull(@Param("userCode") Long userCode,
+                                                                   @Param("productId") Integer productId,
+                                                                   @Param("quantity") Integer quantity);
 }

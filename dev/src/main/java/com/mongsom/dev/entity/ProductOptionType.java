@@ -84,8 +84,14 @@ public class ProductOptionType {
         this.sortOrder = sortOrder;
     }
     
-    public boolean isRequiredOption() {
-        return this.isRequired == 1;
+    public void updateIsRequired(Integer isRequired) {
+        this.isRequired = isRequired;
+    }
+    
+    public void updateAll(String typeName, Integer isRequired, Integer sortOrder) {
+        this.typeName = typeName;
+        this.isRequired = isRequired;
+        this.sortOrder = sortOrder;
     }
     
     // 소프트 삭제 필드 추가

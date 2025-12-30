@@ -12,9 +12,13 @@ import org.springframework.stereotype.Service;
 
 import com.mongsom.dev.common.dto.RespDto;
 import com.mongsom.dev.dto.admin.user.reqDto.AdminLoginReqDto;
+import com.mongsom.dev.dto.admin.user.reqDto.MileageChargeReqDto;
 import com.mongsom.dev.dto.admin.user.respDto.AdminUserListRespDto;
+import com.mongsom.dev.dto.admin.user.respDto.MileageChargeRespDto;
 import com.mongsom.dev.entity.User;
 import com.mongsom.dev.repository.UserRepository;
+
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -131,4 +135,60 @@ public class AdminUserService {
         }
     }
     
+    /**
+     * 사용자 마일리지 충전
+     */
+    @Transactional
+    public RespDto<MileageChargeRespDto> chargeMileage(MileageChargeReqDto reqDto) {
+        try {
+            log.info("마일리지 충전 시작 - userCode: {}, chargeAmount: {}", 
+                    reqDto.getUserCode(), reqDto.getChargeAmount());
+            
+            // 1. 사용자 존재 확인
+            Optional<User> userOpt = userRepository.findUserByUserCode(reqDto.getUserCode());
+            if (userOpt.isEmpty()) {
+                log.warn("존재하지 않는 사용자 - userCode: {}", reqDto.getUserCode());
+                return RespDto.<MileageChargeRespDto>builder()
+                        .code(-1)
+                        .data(MileageChargeRespDto.failure("존재하지 않는 사용자입니다."))
+                        .build();
+            }
+            
+            User user = userOpt.get();
+            Integer beforeMileage = user.getMileage();
+            
+            // 2. 마일리지 충전
+            user.addMileage(reqDto.getChargeAmount());
+            userRepository.save(user);
+            
+            Integer afterMileage = user.getMileage();
+            
+            log.info("마일리지 충전 완료 - userCode: {}, 충전 전: {}, 충전 후: {}, 충전액: {}",
+                    reqDto.getUserCode(), beforeMileage, afterMileage, reqDto.getChargeAmount());
+            
+            // 3. 응답 데이터 생성
+            MileageChargeRespDto responseData = MileageChargeRespDto.success(
+                user.getUserCode(),
+                user.getName(),
+                beforeMileage,
+                afterMileage,
+                reqDto.getChargeAmount()
+            );
+            
+            return RespDto.<MileageChargeRespDto>builder()
+                    .code(1)
+                    .data(responseData)
+                    .build();
+            
+        } catch (Exception e) {
+            log.error("마일리지 충전 실패 - userCode: {}, chargeAmount: {}", 
+                    reqDto.getUserCode(), reqDto.getChargeAmount(), e);
+            
+            return RespDto.<MileageChargeRespDto>builder()
+                    .code(-1)
+                    .data(MileageChargeRespDto.failure("마일리지 충전 중 오류가 발생했습니다: " + e.getMessage()))
+                    .build();
+        }
+    }
+
 }

@@ -37,4 +37,14 @@ public interface ProductOptionTypeRepository extends JpaRepository<ProductOption
     // 옵션 타입명으로 조회 (같은 상품 내에서)
     @Query("SELECT pot FROM ProductOptionType pot WHERE pot.productId = :productId AND pot.typeName = :typeName")
     ProductOptionType findByProductIdAndTypeName(@Param("productId") Integer productId, @Param("typeName") String typeName);
+    
+    /**
+     * 상품별 옵션 타입 조회 (삭제되지 않은 것만, 정렬 적용)
+     */
+    @Query("SELECT ot FROM ProductOptionType ot " +
+           "WHERE ot.productId = :productId " +
+           "AND (ot.isDeleted IS NULL OR ot.isDeleted = 0) " +
+           "ORDER BY ot.sortOrder ASC")
+    List<ProductOptionType> findByProductIdAndNotDeleted(@Param("productId") Integer productId);
+    
 }
