@@ -1,0 +1,60 @@
+server:
+  port: 8000
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+      force-request: true
+      force-response: true
+  tomcat:
+    uri-encoding: UTF-8
+spring:
+  mvc:
+    static-path-pattern: /static/**
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    view-names: thymeleaf/*
+    mode: HTML
+    encoding: UTF-8
+    cache: false
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://mongsom.cf6og1l7mjlg.ap-northeast-2.rds.amazonaws.com:3306/mongsomN
+    password: "dwaf8083!!"
+    username: admin
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MariaDBDialect
+  web:
+    resources:
+      static-locations: classpath:/META-INF/resources/,classpath:/resources/,classpath:/static/,classpath:/public/
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: mongsomofficial@gmail.com
+    password: phqt gyrf nvzo brxi
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+toss:
+  secret-key: live_sk_d46qopOB89jZnmlaYEqE3ZmM75y0
+
+naver:
+  client-id: JKQvPJoj1kRYRAmSvI6n
+  client-secret: pda10z95Qd
+
+mybatis:
+  mapper-locations:
+  - /mappers/*/*.xml
