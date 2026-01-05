@@ -18,6 +18,7 @@ import com.mongsom.dev.dto.qna.respDto.ProductQnaListRespDto;
 import com.mongsom.dev.dto.qna.respDto.QnaDetailRespDto;
 import com.mongsom.dev.dto.qna.respDto.QnaListRespDto;
 import com.mongsom.dev.entity.Qna;
+import com.mongsom.dev.entity.User;
 import com.mongsom.dev.repository.QnaRepository;
 import com.mongsom.dev.repository.UserRepository;
 
@@ -233,8 +234,9 @@ public class QnaService {
             log.info("QNA 생성 시작 - userCode: {}, productId: {}", 
                     reqDto.getUserCode(), reqDto.getProductId());
             
-            // 사용자 존재 확인
-            if (!userRepository.existsByUserCode(reqDto.getUserCode())) {
+            // 사용자 존재 확인 및 이름 조회
+            Optional<User> userOpt = userRepository.findByUserCode(reqDto.getUserCode());
+            if (userOpt.isEmpty()) {
                 log.warn("존재하지 않는 사용자 - userCode: {}", reqDto.getUserCode());
                 return RespDto.<String>builder()
                         .code(-1)
@@ -242,13 +244,19 @@ public class QnaService {
                         .build();
             }
             
+            User user = userOpt.get();
+            String writerName = user.getName(); // 또는 user.getUserName() - 실제 필드명에 맞게
+            
+            log.info("QNA 작성자 조회 완료 - userCode: {}, writerName: {}", 
+                    reqDto.getUserCode(), writerName);
+            
             // QNA 엔티티 생성
             Qna qna = Qna.builder()
                     .userCode(reqDto.getUserCode())
                     .productCode(reqDto.getProductId())
                     .productName(reqDto.getProductName())
                     .qnaTitle(reqDto.getQnaTitle())
-                    .qnaWriter(reqDto.getQnaWriter())
+                    .qnaWriter(writerName)
                     .qnaContents(reqDto.getQnaContents())
                     .orderId(reqDto.getOrderId())
                     .lockStatus(reqDto.getLockStatus())

@@ -29,6 +29,13 @@ public class AdminReviewListRespDto {
         private String productName;        // 상품명
         private Integer orderId;           // 주문 ID
         private String orderNum;           // 주문 번호
+
+        private Integer option1;           // 첫 번째 옵션 ID
+        private Integer option2;           // 두 번째 옵션 ID
+        private String option1Name;       // 첫 번째 옵션 이름
+        private String option2Name;       // 두 번째 옵션 이름
+        private String optionSummary;     // 옵션 요약 (예: "500ml, 블랙")
+        
         private Integer reviewRating;      // 리뷰 평점
         private String reviewContent;      // 리뷰 내용 (요약)
         private Integer adminHidden;       // 숨김 상태 (0=정상, 1=숨김)

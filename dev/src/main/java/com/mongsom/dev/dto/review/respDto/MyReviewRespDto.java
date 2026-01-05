@@ -33,6 +33,8 @@ public class MyReviewRespDto {
         // 옵션 정보
         private Integer option1;           // 첫 번째 옵션 ID
         private Integer option2;           // 두 번째 옵션 ID
+        private String option1Name;       // 첫 번째 옵션 이름
+        private String option2Name;       // 두 번째 옵션 이름
         private List<OptionInfoDto> selectedOptions; // 선택된 옵션들 상세 정보
         
         // 주문 정보

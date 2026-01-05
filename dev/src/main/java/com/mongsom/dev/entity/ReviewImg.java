@@ -35,7 +35,7 @@ public class ReviewImg {
     @Column(name = "review_id", nullable = false)
     private Integer reviewId;
     
-    @Column(name = "review_img_url", length = 255)
+    @Column(name = "review_img_url", length = 500)
     private String reviewImgUrl;
     
     @CreationTimestamp
@@ -45,5 +45,18 @@ public class ReviewImg {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    
+    // 연관관계
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "review_id", insertable = false, updatable = false)
+    private UserReview userReview;
+    
+    // 정적 팩토리 메서드
+    public static ReviewImg createReviewImg(Integer reviewId, String imgUrl) {
+        return ReviewImg.builder()
+                .reviewId(reviewId)
+                .reviewImgUrl(imgUrl)
+                .build();
+    }
     
 }

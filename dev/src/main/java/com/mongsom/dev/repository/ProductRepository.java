@@ -33,63 +33,63 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     
 	 // ===== 전체 상품 조회 =====
 	
-	 // 1. 전체 상품 최신순
-	 Page<Product> findByDeleteStatusOrderByCreatedAtDesc(Integer deleteStatus, Pageable pageable);
-	
-	 // 2. 전체 상품 인기순
-	 @Query(value = "SELECT p.* FROM product p " +
-	                "LEFT JOIN (SELECT od.product_id, COUNT(*) as order_count " +
-	                "           FROM order_detail od " +
-	                "           WHERE od.order_status = 0 " +
-	                "           GROUP BY od.product_id) o ON p.product_id = o.product_id " +
-	                "WHERE p.delete_status = 0 " +
-	                "ORDER BY COALESCE(o.order_count, 0) DESC, p.product_id DESC",
-	        countQuery = "SELECT COUNT(p.product_id) FROM product p WHERE p.delete_status = 0",
-	        nativeQuery = true)
-	 Page<Product> findAllOrderByPopularityDesc(Pageable pageable);
-	
-	 // 3. 전체 상품 리뷰많은순
-	 @Query(value = "SELECT p.* FROM product p " +
-	                "LEFT JOIN (" +
-	                "    SELECT product_id, COUNT(*) as review_count " +
-	                "    FROM user_review " +
-	                "    GROUP BY product_id" +
-	                ") r ON p.product_id = r.product_id " +
-	                "WHERE p.delete_status = 0 " +
-	                "ORDER BY COALESCE(r.review_count, 0) DESC, p.product_id DESC",
-	        countQuery = "SELECT COUNT(*) FROM product WHERE delete_status = 0",
-	        nativeQuery = true)
-	 Page<Product> findAllOrderByReviewCountDesc(Pageable pageable);
-	
-	 // ===== 프리미엄 상품 조회 =====
-	
-	 // 4. 프리미엄 상품 최신순
-	 Page<Product> findByPremiumAndDeleteStatusOrderByCreatedAtDesc(Integer premium, Integer deleteStatus, Pageable pageable);
-	
-	 // 5. 프리미엄 상품 인기순
-	 @Query(value = "SELECT p.* FROM product p " +
-	                "LEFT JOIN (SELECT od.product_id, COUNT(*) as order_count " +
-	                "           FROM order_detail od " +
-	                "           WHERE od.order_status = 0 " +
-	                "           GROUP BY od.product_id) o ON p.product_id = o.product_id " +
-	                "WHERE p.delete_status = 0 AND p.premium = :premium " +
-	                "ORDER BY COALESCE(o.order_count, 0) DESC, p.product_id DESC",
-	        countQuery = "SELECT COUNT(p.product_id) FROM product p WHERE p.delete_status = 0 AND p.premium = :premium",
-	        nativeQuery = true)
-	 Page<Product> findByPremiumOrderByPopularityDesc(@Param("premium") Integer premium, Pageable pageable);
-	
-	 // 6. 프리미엄 상품 리뷰많은순
-	 @Query(value = "SELECT p.* FROM product p " +
-	                "LEFT JOIN (" +
-	                "    SELECT product_id, COUNT(*) as review_count " +
-	                "    FROM user_review " +
-	                "    GROUP BY product_id" +
-	                ") r ON p.product_id = r.product_id " +
-	                "WHERE p.delete_status = 0 AND p.premium = :premium " +
-	                "ORDER BY COALESCE(r.review_count, 0) DESC, p.product_id DESC",
-	        countQuery = "SELECT COUNT(*) FROM product WHERE delete_status = 0 AND premium = :premium",
-	        nativeQuery = true)
-	 Page<Product> findByPremiumOrderByReviewCountDesc(@Param("premium") Integer premium, Pageable pageable);
+    // 1. 전체 상품 최신순
+    Page<Product> findByDeleteStatusAndIsAvailableOrderByCreatedAtDesc(Integer deleteStatus, Integer isAvailable, Pageable pageable);
+
+    // 2. 전체 상품 인기순
+    @Query(value = "SELECT p.* FROM product p " +
+                   "LEFT JOIN (SELECT od.product_id, COUNT(*) as order_count " +
+                   "           FROM order_detail od " +
+                   "           WHERE od.order_status = 0 " +
+                   "           GROUP BY od.product_id) o ON p.product_id = o.product_id " +
+                   "WHERE p.delete_status = 0 AND p.is_available = 1 " +
+                   "ORDER BY COALESCE(o.order_count, 0) DESC, p.product_id DESC",
+            countQuery = "SELECT COUNT(p.product_id) FROM product p WHERE p.delete_status = 0 AND p.is_available = 1",
+            nativeQuery = true)
+    Page<Product> findAllOrderByPopularityDesc(Pageable pageable);
+
+    // 3. 전체 상품 리뷰많은순
+    @Query(value = "SELECT p.* FROM product p " +
+                   "LEFT JOIN (" +
+                   "    SELECT product_id, COUNT(*) as review_count " +
+                   "    FROM user_review " +
+                   "    GROUP BY product_id" +
+                   ") r ON p.product_id = r.product_id " +
+                   "WHERE p.delete_status = 0 AND p.is_available = 1 " +
+                   "ORDER BY COALESCE(r.review_count, 0) DESC, p.product_id DESC",
+            countQuery = "SELECT COUNT(*) FROM product WHERE delete_status = 0 AND is_available = 1",
+            nativeQuery = true)
+    Page<Product> findAllOrderByReviewCountDesc(Pageable pageable);
+
+    // ===== 프리미엄 상품 조회 =====
+
+    // 4. 프리미엄 상품 최신순
+    Page<Product> findByPremiumAndDeleteStatusAndIsAvailableOrderByCreatedAtDesc(Integer premium, Integer deleteStatus, Integer isAvailable, Pageable pageable);
+
+    // 5. 프리미엄 상품 인기순
+    @Query(value = "SELECT p.* FROM product p " +
+                   "LEFT JOIN (SELECT od.product_id, COUNT(*) as order_count " +
+                   "           FROM order_detail od " +
+                   "           WHERE od.order_status = 0 " +
+                   "           GROUP BY od.product_id) o ON p.product_id = o.product_id " +
+                   "WHERE p.delete_status = 0 AND p.is_available = 1 AND p.premium = :premium " +
+                   "ORDER BY COALESCE(o.order_count, 0) DESC, p.product_id DESC",
+            countQuery = "SELECT COUNT(p.product_id) FROM product p WHERE p.delete_status = 0 AND p.is_available = 1 AND p.premium = :premium",
+            nativeQuery = true)
+    Page<Product> findByPremiumOrderByPopularityDesc(@Param("premium") Integer premium, Pageable pageable);
+
+    // 6. 프리미엄 상품 리뷰많은순
+    @Query(value = "SELECT p.* FROM product p " +
+                   "LEFT JOIN (" +
+                   "    SELECT product_id, COUNT(*) as review_count " +
+                   "    FROM user_review " +
+                   "    GROUP BY product_id" +
+                   ") r ON p.product_id = r.product_id " +
+                   "WHERE p.delete_status = 0 AND p.is_available = 1 AND p.premium = :premium " +
+                   "ORDER BY COALESCE(r.review_count, 0) DESC, p.product_id DESC",
+            countQuery = "SELECT COUNT(*) FROM product WHERE delete_status = 0 AND is_available = 1 AND premium = :premium",
+            nativeQuery = true)
+    Page<Product> findByPremiumOrderByReviewCountDesc(@Param("premium") Integer premium, Pageable pageable);
     
     // 상품명으로 검색 (LIKE 검색)
     @Query("SELECT p FROM Product p WHERE p.name LIKE %:keyword% AND p.deleteStatus = 0")

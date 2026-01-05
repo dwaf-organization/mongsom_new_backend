@@ -32,6 +32,7 @@ import com.mongsom.dev.repository.OrderDetailRepository;
 import com.mongsom.dev.repository.OrderItemRepository;
 import com.mongsom.dev.repository.PaymentsRepository;
 import com.mongsom.dev.repository.ProductImgRepository;
+import com.mongsom.dev.repository.ProductOptionValueRepository;
 import com.mongsom.dev.repository.ProductRepository;
 import com.mongsom.dev.repository.ReviewImgRepository;
 import com.mongsom.dev.repository.UserRepository;
@@ -55,6 +56,7 @@ public class MyService {
     private final UserRepository userRepository;
     private final UserReviewRepository userReviewRepository;
     private final ChangeItemRepository changeItemRepository;
+    private final ProductOptionValueRepository productOptionValueRepository;
     
     /**
      * 작성 가능한 리뷰 조회 (review_status = 0, 배송완료)
@@ -192,6 +194,19 @@ public class MyService {
                     .collect(Collectors.toList());
         }
         
+        // 옵션명 조회
+        String option1Name = null;
+        String option2Name = null;
+        
+        if (orderDetail.hasOption1()) {
+            option1Name = getOptionValueName(orderDetail.getOption1());
+        }
+        
+        if (orderDetail.hasOption2()) {
+            option2Name = getOptionValueName(orderDetail.getOption2());
+        }
+
+        
         // 선택된 옵션들 정보 수집
         List<MyReviewRespDto.OptionInfoDto> selectedOptions = new ArrayList<>();
         
@@ -225,6 +240,8 @@ public class MyService {
                 // 옵션 정보
                 .option1(orderDetail.getOption1())
                 .option2(orderDetail.getOption2())
+                .option1Name(option1Name)
+                .option2Name(option2Name)
                 .selectedOptions(selectedOptions)
                 
                 // 주문 정보 (OrderItem에서)
@@ -234,6 +251,22 @@ public class MyService {
                 .paymentAt(orderItem != null ? orderItem.getPaymentAt() : null)
                 .deliveryStatus(orderItem != null ? orderItem.getDeliveryStatus() : null)
                 .build();
+    }
+    
+    /**
+     * 옵션 값 이름 조회 헬퍼 메서드
+     */
+    private String getOptionValueName(Integer optionValueId) {
+        try {
+            if (optionValueId == null) return null;
+            
+            Optional<String> valueNameOpt = productOptionValueRepository.findValueNameById(optionValueId);
+            return valueNameOpt.orElse("옵션-" + optionValueId);
+            
+        } catch (Exception e) {
+            log.warn("옵션 이름 조회 실패 - optionValueId: {}", optionValueId, e);
+            return "옵션-" + optionValueId;
+        }
     }
     
     /**
@@ -449,7 +482,35 @@ public class MyService {
             orderNum = orderItemOpt.get().getOrderNum();
         }
         
-        // 4. 리뷰 내용 요약 (50자 제한)
+        // 4. 옵션 정보 조회
+        Integer option1 = null;
+        Integer option2 = null;
+        String option1Name = null;
+        String option2Name = null;
+        String optionSummary = "";
+        
+        Optional<OrderDetail> orderDetailOpt = orderDetailRepository.findById(review.getOrderDetailId());
+        if (orderDetailOpt.isPresent()) {
+            OrderDetail orderDetail = orderDetailOpt.get();
+            option1 = orderDetail.getOption1();
+            option2 = orderDetail.getOption2();
+            
+            // 옵션명 조회
+            if (option1 != null) {
+                option1Name = getOptionValueName(option1);
+            }
+            if (option2 != null) {
+                option2Name = getOptionValueName(option2);
+            }
+            
+            // 옵션 요약 생성
+            List<String> optionParts = new ArrayList<>();
+            if (option1Name != null) optionParts.add(option1Name);
+            if (option2Name != null) optionParts.add(option2Name);
+            optionSummary = String.join(", ", optionParts);
+        }
+        
+        // 5. 리뷰 내용 요약 (50자 제한)
         String contentSummary = review.getReviewContent();
         if (contentSummary != null && contentSummary.length() > 50) {
             contentSummary = contentSummary.substring(0, 50) + "...";
@@ -464,6 +525,11 @@ public class MyService {
                 .productName(productName)
                 .orderId(review.getOrderId())
                 .orderNum(orderNum)
+                .option1(option1)
+                .option2(option2)
+                .option1Name(option1Name)
+                .option2Name(option2Name)
+                .optionSummary(optionSummary)
                 .reviewRating(review.getReviewRating())
                 .reviewContent(contentSummary)
                 .adminHidden(review.getAdminHidden())
@@ -510,7 +576,7 @@ public class MyService {
     }
     
     /**
-     * UserReview를 AdminReviewDetailDto로 변환 (수정됨)
+     * UserReview를 AdminReviewDetailDto로 변환 (최종 버전)
      */
     private AdminReviewDetailRespDto convertToAdminReviewDetailDto(UserReview review) {
         // 1. 사용자명 조회
@@ -519,47 +585,66 @@ public class MyService {
         if (userOpt.isPresent()) {
             userName = userOpt.get().getName(); // 실제 User 엔티티의 필드명에 맞게 수정
         }
-        
+
         // 2. 상품명 조회
         String productName = "알 수 없음";
         Optional<Product> productOpt = productRepository.findById(review.getProductId());
         if (productOpt.isPresent()) {
             productName = productOpt.get().getName(); // 실제 Product 엔티티의 필드명에 맞게 수정
         }
-        
+
         // 3. 주문 정보 조회
         String orderNum = null;
         AdminReviewDetailRespDto.OrderDetailInfo orderDetailInfo = null;
-        
+
         // OrderItem 조회
         Optional<OrderItem> orderItemOpt = orderItemRepository.findById(review.getOrderId());
         OrderItem orderItem = orderItemOpt.orElse(null);
-        
+
         // OrderDetail 조회
         Optional<OrderDetail> orderDetailOpt = orderDetailRepository.findById(review.getOrderDetailId());
         OrderDetail orderDetail = orderDetailOpt.orElse(null);
-        
+
         if (orderItem != null && orderDetail != null) {
             orderNum = orderItem.getOrderNum();
+
+            // 옵션명 조회
+            String option1Name = null;
+            String option2Name = null;
             
-            // 옵션 요약 생성 (간단한 방식)
-            String optionSummary = "";
-            if (orderDetail.hasOption1() || orderDetail.hasOption2()) {
-                optionSummary = String.format("option1: %s, option2: %s", 
-                    orderDetail.getOption1(), orderDetail.getOption2());
+            if (orderDetail.hasOption1()) {
+                option1Name = getOptionValueName(orderDetail.getOption1());
             }
-            
+            if (orderDetail.hasOption2()) {
+                option2Name = getOptionValueName(orderDetail.getOption2());
+            }
+
+            // 옵션 요약 생성 (실제 옵션명으로)
+            String optionSummary = "";
+            List<String> optionParts = new ArrayList<>();
+            if (option1Name != null) {
+                optionParts.add(option1Name);
+            }
+            if (option2Name != null) {
+                optionParts.add(option2Name);
+            }
+            if (!optionParts.isEmpty()) {
+                optionSummary = String.join(", ", optionParts);
+            }
+
             orderDetailInfo = AdminReviewDetailRespDto.OrderDetailInfo.builder()
                     .quantity(orderDetail.getQuantity())
                     .option1(orderDetail.getOption1())
                     .option2(orderDetail.getOption2())
+                    .option1Name(option1Name)
+                    .option2Name(option2Name)
                     .optionSummary(optionSummary)
                     .orderDate(orderItem.getCreatedAt())
                     .paymentDate(orderItem.getPaymentAt())
                     .deliveryStatus(orderItem.getDeliveryStatus())
                     .build();
         }
-        
+
         // 4. 리뷰 이미지들 수집 (있다면)
         List<String> reviewImageUrls = new ArrayList<>();
         // TODO: UserReviewImage 테이블이 있다면 조회
@@ -570,7 +655,7 @@ public class MyService {
                     .collect(Collectors.toList());
         }
         */
-        
+
         return AdminReviewDetailRespDto.builder()
                 .reviewId(review.getReviewId())
                 .userCode(review.getUserCode())
@@ -581,7 +666,7 @@ public class MyService {
                 .orderId(review.getOrderId())
                 .orderNum(orderNum)
                 .reviewRating(review.getReviewRating())
-                .reviewContent(review.getReviewContent()) // 전체 내용
+                .reviewContent(review.getReviewContent())
                 .adminHidden(review.getAdminHidden())
                 .hiddenStatus(review.isHidden() ? "숨김" : "정상")
                 .createdAt(review.getCreatedAt())
@@ -589,6 +674,167 @@ public class MyService {
                 .reviewImageUrls(reviewImageUrls)
                 .orderDetail(orderDetailInfo)
                 .build();
+    }
+    
+    /**
+     * 리뷰 작성
+     */
+    @Transactional
+    public RespDto<String> createReview(ReviewCreateReqDto reqDto) {
+        try {
+            log.info("리뷰 작성 시작 - userCode: {}, orderDetailId: {}", 
+                    reqDto.getUserCode(), reqDto.getOrderDetailId());
+            
+            // 1. OrderDetail 조회 및 검증
+            Optional<OrderDetail> orderDetailOpt = orderDetailRepository.findById(reqDto.getOrderDetailId());
+            if (orderDetailOpt.isEmpty()) {
+                log.warn("존재하지 않는 주문 상세 - orderDetailId: {}", reqDto.getOrderDetailId());
+                return RespDto.<String>builder()
+                        .code(-2)
+                        .data("존재하지 않는 주문입니다.")
+                        .build();
+            }
+            
+            OrderDetail orderDetail = orderDetailOpt.get();
+            
+            // 2. 이미 리뷰가 작성되었는지 확인
+            if (orderDetail.getReviewStatus() == 1) {
+                log.warn("이미 리뷰가 작성된 주문 - orderDetailId: {}", reqDto.getOrderDetailId());
+                return RespDto.<String>builder()
+                        .code(-3)
+                        .data("이미 리뷰가 작성된 주문입니다.")
+                        .build();
+            }
+            
+            // 3. OrderItem에서 orderId 조회
+            Optional<OrderItem> orderItemOpt = orderItemRepository.findById(orderDetail.getOrderId());
+            if (orderItemOpt.isEmpty()) {
+                log.warn("연관된 주문을 찾을 수 없음 - orderId: {}", orderDetail.getOrderId());
+                return RespDto.<String>builder()
+                        .code(-2)
+                        .data("연관된 주문을 찾을 수 없습니다.")
+                        .build();
+            }
+            
+            OrderItem orderItem = orderItemOpt.get();
+            
+            // 4. UserReview 생성
+            UserReview userReview = UserReview.builder()
+                    .userCode(reqDto.getUserCode())
+                    .orderDetailId(reqDto.getOrderDetailId())
+                    .productId(reqDto.getProductId())
+                    .orderId(orderItem.getOrderId()) // OrderItem의 orderId
+                    .reviewRating(reqDto.getReviewRating())
+                    .reviewContent(reqDto.getReviewContent())
+                    .adminHidden(0)
+                    .build();
+            
+            UserReview savedReview = userReviewRepository.save(userReview);
+            
+            // 5. 리뷰 이미지 저장
+            if (reqDto.getReviewImgUrls() != null && !reqDto.getReviewImgUrls().isEmpty()) {
+                List<ReviewImg> reviewImgs = reqDto.getReviewImgUrls().stream()
+                        .filter(url -> url != null && !url.trim().isEmpty())
+                        .map(url -> ReviewImg.createReviewImg(savedReview.getReviewId(), url))
+                        .collect(Collectors.toList());
+                
+                reviewImgRepository.saveAll(reviewImgs);
+                log.info("리뷰 이미지 저장 완료 - reviewId: {}, 이미지 수: {}", 
+                        savedReview.getReviewId(), reviewImgs.size());
+            }
+            
+            // 6. OrderDetail의 reviewStatus 업데이트
+            orderDetail.setReviewStatus(1);
+            orderDetailRepository.save(orderDetail);
+            
+            log.info("리뷰 작성 완료 - reviewId: {}, userCode: {}", 
+                    savedReview.getReviewId(), reqDto.getUserCode());
+            
+            return RespDto.<String>builder()
+                    .code(1)
+                    .data("리뷰가 성공적으로 작성되었습니다.")
+                    .build();
+            
+        } catch (Exception e) {
+            log.error("리뷰 작성 실패 - userCode: {}, orderDetailId: {}", 
+                    reqDto.getUserCode(), reqDto.getOrderDetailId(), e);
+            return RespDto.<String>builder()
+                    .code(-1)
+                    .data("리뷰 작성 중 오류가 발생했습니다.")
+                    .build();
+        }
+    }
+
+    /**
+     * 리뷰 수정
+     */
+    @Transactional
+    public RespDto<String> updateReview(ReviewUpdateReqDto reqDto) {
+        try {
+            log.info("리뷰 수정 시작 - userCode: {}, reviewId: {}", 
+                    reqDto.getUserCode(), reqDto.getReviewId());
+            
+            // 1. 리뷰 조회 및 권한 확인
+            Optional<UserReview> reviewOpt = userReviewRepository.findByUserCodeAndReviewId(
+                    reqDto.getUserCode(), reqDto.getReviewId());
+            
+            if (reviewOpt.isEmpty()) {
+                // 리뷰 존재 여부 확인
+                if (userReviewRepository.existsById(reqDto.getReviewId())) {
+                    log.warn("권한 없는 리뷰 수정 시도 - userCode: {}, reviewId: {}", 
+                            reqDto.getUserCode(), reqDto.getReviewId());
+                    return RespDto.<String>builder()
+                            .code(-3)
+                            .data("수정 권한이 없습니다.")
+                            .build();
+                } else {
+                    log.warn("존재하지 않는 리뷰 - reviewId: {}", reqDto.getReviewId());
+                    return RespDto.<String>builder()
+                            .code(-2)
+                            .data("존재하지 않는 리뷰입니다.")
+                            .build();
+                }
+            }
+            
+            UserReview review = reviewOpt.get();
+            
+            // 2. 리뷰 정보 업데이트
+            review.setReviewRating(reqDto.getReviewRating());
+            review.setReviewContent(reqDto.getReviewContent());
+            
+            userReviewRepository.save(review);
+            
+            // 3. 기존 이미지 삭제
+            reviewImgRepository.deleteByReviewId(reqDto.getReviewId());
+            
+            // 4. 새 이미지 저장
+            if (reqDto.getReviewImgUrls() != null && !reqDto.getReviewImgUrls().isEmpty()) {
+                List<ReviewImg> reviewImgs = reqDto.getReviewImgUrls().stream()
+                        .filter(url -> url != null && !url.trim().isEmpty())
+                        .map(url -> ReviewImg.createReviewImg(reqDto.getReviewId(), url))
+                        .collect(Collectors.toList());
+                
+                reviewImgRepository.saveAll(reviewImgs);
+                log.info("리뷰 이미지 업데이트 완료 - reviewId: {}, 새 이미지 수: {}", 
+                        reqDto.getReviewId(), reviewImgs.size());
+            }
+            
+            log.info("리뷰 수정 완료 - reviewId: {}, userCode: {}", 
+                    reqDto.getReviewId(), reqDto.getUserCode());
+            
+            return RespDto.<String>builder()
+                    .code(1)
+                    .data("리뷰가 성공적으로 수정되었습니다.")
+                    .build();
+            
+        } catch (Exception e) {
+            log.error("리뷰 수정 실패 - userCode: {}, reviewId: {}", 
+                    reqDto.getUserCode(), reqDto.getReviewId(), e);
+            return RespDto.<String>builder()
+                    .code(-1)
+                    .data("리뷰 수정 중 오류가 발생했습니다.")
+                    .build();
+        }
     }
     
 }

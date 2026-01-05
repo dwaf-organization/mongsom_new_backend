@@ -40,6 +40,8 @@ public class AdminReviewDetailRespDto {
         private Integer quantity;          // 주문 수량
         private Integer option1;           // 옵션1
         private Integer option2;           // 옵션2
+        private String option1Name;       // 옵션1명
+        private String option2Name;       // 옵션2명
         private String optionSummary;      // 옵션 요약
         private LocalDateTime orderDate;   // 주문일
         private LocalDateTime paymentDate; // 결제일

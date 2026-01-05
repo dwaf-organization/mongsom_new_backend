@@ -90,7 +90,7 @@ public class MyController {
     /**
      * 작성된 리뷰 조회 (review_status = 1)
      */
-    @GetMapping("/write/{userCode}/{page}/{size}")
+    @GetMapping("/review/write/{userCode}/{page}/{size}")
     public ResponseEntity<RespDto<MyReviewRespDto>> getWrittenReviews(
             @PathVariable("userCode") Long userCode,
             @PathVariable("page") Integer page,
@@ -295,41 +295,49 @@ public class MyController {
         return ResponseEntity.status(status).body(response);
     }
     
-//    // 리뷰 작성
-//    @PostMapping("/review/create")
-//    public ResponseEntity<RespDto<String>> createReview(@Valid @RequestBody ReviewCreateReqDto reqDto) {
-//        
-//        log.info("리뷰 작성 요청 - orderItemId: {}, userCode: {}, rating: {}", 
-//                reqDto.getOrderDetailId(), reqDto.getUserCode(), reqDto.getReviewRating());
-//        
-//        RespDto<String> response = myService.createReview(reqDto);
-//        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
-//        return ResponseEntity.status(status).body(response);
-//    }
-//    
-//    // 리뷰 수정
-//    @PutMapping("/review/update")
-//    public ResponseEntity<RespDto<String>> updateReview(@Valid @RequestBody ReviewUpdateReqDto reqDto) {
-//        
-//        log.info("리뷰 수정 요청 - reviewId: {}, userCode: {}, rating: {}", 
-//                reqDto.getReviewId(), reqDto.getUserCode(), reqDto.getReviewRating());
-//        
-//        RespDto<String> response = myService.updateReview(reqDto);
-//        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
-//        return ResponseEntity.status(status).body(response);
-//    }
-//    // 리뷰삭제
-//    @DeleteMapping("/review/delete/{reviewId}")
-//    public ResponseEntity<RespDto<Boolean>> deleteReview(
-//            @PathVariable("reviewId") Integer reviewId,
-//            @RequestParam("userCode") Long userCode) {  // 쿼리 파라미터로 userCode 받기
-//        
-//        log.info("리뷰 삭제 요청 - reviewId: {}, userCode: {}", reviewId, userCode);
-//        
-//        RespDto<Boolean> response = myService.deleteReview(reviewId, userCode);
-//        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
-//        return ResponseEntity.status(status).body(response);
-//    }
+    /**
+     * 리뷰 작성
+     */
+    @PostMapping("/review/create")
+    public ResponseEntity<RespDto<String>> createReview(
+            @Valid @RequestBody ReviewCreateReqDto reqDto) {
+        
+        log.info("=== 리뷰 작성 요청 ===");
+        log.info("userCode: {}, orderDetailId: {}, productId: {}", 
+                reqDto.getUserCode(), reqDto.getOrderDetailId(), reqDto.getProductId());
+        
+        RespDto<String> response = myService.createReview(reqDto);
+        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : 
+                           response.getCode() == -2 ? HttpStatus.NOT_FOUND :
+                           response.getCode() == -3 ? HttpStatus.CONFLICT :
+                           HttpStatus.BAD_REQUEST;
+        
+        log.info("리뷰 작성 결과 - code: {}", response.getCode());
+        
+        return ResponseEntity.status(status).body(response);
+    }
+    
+    /**
+     * 리뷰 수정
+     */
+    @PutMapping("/review/update")
+    public ResponseEntity<RespDto<String>> updateReview(
+            @Valid @RequestBody ReviewUpdateReqDto reqDto) {
+        
+        log.info("=== 리뷰 수정 요청 ===");
+        log.info("userCode: {}, reviewId: {}", reqDto.getUserCode(), reqDto.getReviewId());
+        
+        RespDto<String> response = myService.updateReview(reqDto);
+        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : 
+                           response.getCode() == -2 ? HttpStatus.NOT_FOUND :
+                           response.getCode() == -3 ? HttpStatus.FORBIDDEN :
+                           HttpStatus.BAD_REQUEST;
+        
+        log.info("리뷰 수정 결과 - code: {}", response.getCode());
+        
+        return ResponseEntity.status(status).body(response);
+    }
+    
 //    // 배송조회
 //    @GetMapping("/delivery/{orderId}")
 //    public ResponseEntity<RespDto<DeliveryRespDto>> getDeliveryInfo(@PathVariable("orderId") Integer orderId) {

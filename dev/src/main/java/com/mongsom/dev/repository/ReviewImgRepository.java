@@ -32,4 +32,10 @@ public interface ReviewImgRepository extends JpaRepository<ReviewImg, Integer> {
     @Modifying
     @Query("DELETE FROM ReviewImg ri WHERE ri.reviewId = :reviewId")
     void deleteByReviewId(@Param("reviewId") Integer reviewId);
+    
+    /**
+     * 리뷰별 이미지 URL 목록 조회
+     */
+    @Query("SELECT ri.reviewImgUrl FROM ReviewImg ri WHERE ri.reviewId = :reviewId ORDER BY ri.createdAt")
+    List<String> findImageUrlsByReviewId(@Param("reviewId") Integer reviewId);
 }

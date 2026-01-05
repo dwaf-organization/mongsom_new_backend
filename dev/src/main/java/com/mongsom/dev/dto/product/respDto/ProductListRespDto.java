@@ -25,9 +25,11 @@ public class ProductListRespDto {
         private Integer productId;
         private String name;
         private Integer basePrice;
+        private Integer salesMargin;
         private Integer discountPrice;
         private Integer discountPer;
         private Integer premium; // 0=일반, 1=프리미엄
+        private Integer stockStatus;
         private String mainImageUrl; // 대표 이미지
         private Integer reviewCount; // 리뷰 개수
         private Integer orderCount; // 주문 개수 (인기도)

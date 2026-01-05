@@ -103,25 +103,25 @@ public class ProductService {
             // 프리미엄 상품 조회
             switch (sortBy) {
                 case "latest":
-                    return productRepository.findByPremiumAndDeleteStatusOrderByCreatedAtDesc(1, 0, pageable);
+                    return productRepository.findByPremiumAndDeleteStatusAndIsAvailableOrderByCreatedAtDesc(1, 0, 1, pageable);
                 case "popular":
                     return productRepository.findByPremiumOrderByPopularityDesc(1, pageable);
                 case "review":
                     return productRepository.findByPremiumOrderByReviewCountDesc(1, pageable);
                 default:
-                    return productRepository.findByPremiumAndDeleteStatusOrderByCreatedAtDesc(1, 0, pageable);
+                    return productRepository.findByPremiumAndDeleteStatusAndIsAvailableOrderByCreatedAtDesc(1, 0, 1, pageable);
             }
         } else {
             // 전체 상품 조회
             switch (sortBy) {
                 case "latest":
-                    return productRepository.findByDeleteStatusOrderByCreatedAtDesc(0, pageable);
+                    return productRepository.findByDeleteStatusAndIsAvailableOrderByCreatedAtDesc(0, 1, pageable);
                 case "popular":
                     return productRepository.findAllOrderByPopularityDesc(pageable);
                 case "review":
                     return productRepository.findAllOrderByReviewCountDesc(pageable);
                 default:
-                    return productRepository.findByDeleteStatusOrderByCreatedAtDesc(0, pageable);
+                    return productRepository.findByDeleteStatusAndIsAvailableOrderByCreatedAtDesc(0, 1, pageable);
             }
         }
     }
@@ -146,9 +146,11 @@ public class ProductService {
                 .productId(product.getProductId())
                 .name(product.getName())
                 .basePrice(product.getBasePrice())
+                .salesMargin(product.getSalesMargin())
                 .discountPrice(product.getDiscountPrice())
                 .discountPer(product.getDiscountPer())
                 .premium(product.getPremium())
+                .stockStatus(product.getStockStatus())
                 .mainImageUrl(mainImageUrl)
                 .reviewCount(reviewCount)
                 .orderCount(orderCount)

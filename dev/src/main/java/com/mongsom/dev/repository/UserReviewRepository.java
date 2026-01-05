@@ -1,6 +1,7 @@
 package com.mongsom.dev.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -140,5 +141,11 @@ public interface UserReviewRepository extends JpaRepository<UserReview, Integer>
            "AND ur.adminHidden = 0 " +
            "ORDER BY ur.createdAt DESC")
     List<UserReview> findByOrderIdAndNotHidden(@Param("orderId") Integer orderId);
+    
+    /**
+     * 사용자 코드와 리뷰 ID로 리뷰 조회 (권한 확인용)
+     */
+    @Query("SELECT ur FROM UserReview ur WHERE ur.userCode = :userCode AND ur.reviewId = :reviewId")
+    Optional<UserReview> findByUserCodeAndReviewId(@Param("userCode") Long userCode, @Param("reviewId") Integer reviewId);
     
 }

@@ -117,6 +117,7 @@ public class OrderService {
             for (OrderCreateReqDto.OrderDetailDto detailDto : reqDto.getOrderDetails()) {
                 OrderDetail orderDetail = OrderDetail.createOrderDetail(
                     orderId,
+                    reqDto.getUserCode(),
                     detailDto.getProductId(),
                     detailDto.getOption1(),
                     detailDto.getOption2(),

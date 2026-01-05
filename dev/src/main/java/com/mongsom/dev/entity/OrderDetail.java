@@ -28,6 +28,9 @@ public class OrderDetail {
     @Column(name = "order_id", nullable = false)
     private Integer orderId;
     
+    @Column(name = "user_code", nullable = false)
+    private Long userCode;
+    
     @Column(name = "product_id", nullable = false)
     private Integer productId;
     
@@ -117,11 +120,12 @@ public class OrderDetail {
     }
     
     // 정적 팩토리 메서드 - 직접 생성
-    public static OrderDetail createOrderDetail(Integer orderId, Integer productId, 
+    public static OrderDetail createOrderDetail(Integer orderId, Long userCode, Integer productId, 
                                               Integer option1, Integer option2,
                                               Integer quantity, Integer basePrice, Integer optionPrice) {
         OrderDetail orderDetail = OrderDetail.builder()
                 .orderId(orderId)
+                .userCode(userCode)
                 .productId(productId)
                 .option1(option1)
                 .option2(option2)
