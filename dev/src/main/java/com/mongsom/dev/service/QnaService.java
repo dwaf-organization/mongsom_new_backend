@@ -317,6 +317,9 @@ public class QnaService {
             
             // 내용 수정
             qna.setQnaContents(reqDto.getQnaContents());
+            qna.setQnaTitle(reqDto.getQnaTitle());
+            qna.setOrderId(reqDto.getOrderId());
+            qna.setLockStatus(reqDto.getLockStatus());
             qnaRepository.save(qna);
             
             log.info("QNA 수정 완료 - qnaCode: {}, title: {}", 

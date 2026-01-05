@@ -1,9 +1,6 @@
 package com.mongsom.dev.service;
 
-import java.security.Timestamp;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -13,12 +10,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.mongsom.dev.common.dto.RespDto;
+import com.mongsom.dev.dto.delivery.respDto.DeliveryCountRespDto;
+import com.mongsom.dev.dto.delivery.respDto.DeliveryInfoRespDto;
+import com.mongsom.dev.dto.order.respDto.MyOrderDetailRespDto;
+import com.mongsom.dev.dto.order.respDto.MyOrderListRespDto;
 import com.mongsom.dev.dto.review.reqDto.ReviewCreateReqDto;
 import com.mongsom.dev.dto.review.reqDto.ReviewUpdateReqDto;
 import com.mongsom.dev.dto.review.respDto.AdminReviewDetailRespDto;
 import com.mongsom.dev.dto.review.respDto.AdminReviewListRespDto;
 import com.mongsom.dev.dto.review.respDto.MyReviewRespDto;
-import com.mongsom.dev.dto.review.respDto.WrittenReviewRespDto;
 import com.mongsom.dev.entity.ChangeItem;
 import com.mongsom.dev.entity.OrderDetail;
 import com.mongsom.dev.entity.OrderItem;
@@ -31,7 +31,6 @@ import com.mongsom.dev.repository.ChangeItemRepository;
 import com.mongsom.dev.repository.OrderDetailRepository;
 import com.mongsom.dev.repository.OrderItemRepository;
 import com.mongsom.dev.repository.PaymentsRepository;
-import com.mongsom.dev.repository.ProductImgRepository;
 import com.mongsom.dev.repository.ProductOptionValueRepository;
 import com.mongsom.dev.repository.ProductRepository;
 import com.mongsom.dev.repository.ReviewImgRepository;
@@ -49,14 +48,13 @@ public class MyService {
     
     private final OrderItemRepository orderItemRepository;
     private final OrderDetailRepository orderDetailRepository;
-    private final ProductImgRepository productImgRepository;
     private final ProductRepository productRepository;
     private final PaymentsRepository paymentsRepository;
     private final ReviewImgRepository reviewImgRepository;
     private final UserRepository userRepository;
     private final UserReviewRepository userReviewRepository;
-    private final ChangeItemRepository changeItemRepository;
     private final ProductOptionValueRepository productOptionValueRepository;
+    private final ChangeItemRepository changeItemRepository;
     
     /**
      * 작성 가능한 리뷰 조회 (review_status = 0, 배송완료)
@@ -119,7 +117,7 @@ public class MyService {
     }
     
     /**
-     * 작성된 리뷰 조회 (review_status = 1)
+     * 작성된 리뷰 조회 (review_status = 1, 임의숨김 제외, 리뷰 내용 포함)
      */
     @Transactional
     public RespDto<MyReviewRespDto> getWrittenReviews(Long userCode, Pageable pageable) {
@@ -135,24 +133,24 @@ public class MyService {
                         .build();
             }
             
-            // 작성된 리뷰 조회 (review_status = 1)
-            Page<OrderDetail> orderDetailPage = orderDetailRepository
-                    .findWrittenReviews(userCode, pageable);
+            // 작성된 리뷰 조회 (리뷰 내용 포함)
+            Page<Object[]> resultPage = orderDetailRepository
+                    .findWrittenReviewsWithReviewInfo(userCode, pageable);
             
             // DTO 변환
-            List<MyReviewRespDto.MyReviewItemDto> items = orderDetailPage.getContent()
+            List<MyReviewRespDto.MyReviewItemDto> items = resultPage.getContent()
                     .stream()
-                    .map(this::convertToMyReviewItemDto)
+                    .map(this::convertToMyReviewItemDtoWithReview)
                     .collect(Collectors.toList());
             
             // 페이지 정보 생성
             MyReviewRespDto.PaginationDto pagination = MyReviewRespDto.PaginationDto.builder()
-                    .currentPage(orderDetailPage.getNumber())
-                    .totalPage(orderDetailPage.getTotalPages())
-                    .size(orderDetailPage.getSize())
-                    .totalElements(orderDetailPage.getTotalElements())
-                    .hasNext(orderDetailPage.hasNext())
-                    .hasPrevious(orderDetailPage.hasPrevious())
+                    .currentPage(resultPage.getNumber())
+                    .totalPage(resultPage.getTotalPages())
+                    .size(resultPage.getSize())
+                    .totalElements(resultPage.getTotalElements())
+                    .hasNext(resultPage.hasNext())
+                    .hasPrevious(resultPage.hasPrevious())
                     .build();
             
             // 응답 데이터 생성
@@ -162,7 +160,7 @@ public class MyService {
                     .build();
             
             log.info("작성된 리뷰 조회 완료 - userCode: {}, 총 {}건", 
-                    userCode, orderDetailPage.getTotalElements());
+                    userCode, resultPage.getTotalElements());
             
             return RespDto.<MyReviewRespDto>builder()
                     .code(1)
@@ -250,6 +248,103 @@ public class MyService {
                 .orderCreatedAt(orderItem != null ? orderItem.getCreatedAt() : null)
                 .paymentAt(orderItem != null ? orderItem.getPaymentAt() : null)
                 .deliveryStatus(orderItem != null ? orderItem.getDeliveryStatus() : null)
+                
+                .reviewId(null)
+                .reviewRating(null)
+                .reviewContent(null)
+                .reviewImgUrls(new ArrayList<>())
+                .reviewCreatedAt(null)
+                
+                .build();
+    }
+    
+    /**
+     * OrderDetail + UserReview를 MyReviewItemDto로 변환 (리뷰 내용 포함)
+     */
+    private MyReviewRespDto.MyReviewItemDto convertToMyReviewItemDtoWithReview(Object[] result) {
+        OrderDetail orderDetail = (OrderDetail) result[0];
+        UserReview userReview = (UserReview) result[1]; // null일 수 있음
+        
+        // 상품 정보 가져오기
+        var product = orderDetail.getProduct();
+        
+        // 상품 이미지들 수집
+        List<String> productImgUrls = new ArrayList<>();
+        if (product != null && product.getProductImages() != null) {
+            productImgUrls = product.getProductImages()
+                    .stream()
+                    .map(img -> img.getProductImgUrl())
+                    .collect(Collectors.toList());
+        }
+        
+        // 옵션명 조회
+        String option1Name = null;
+        String option2Name = null;
+        
+        if (orderDetail.hasOption1()) {
+            option1Name = getOptionValueName(orderDetail.getOption1());
+        }
+        
+        if (orderDetail.hasOption2()) {
+            option2Name = getOptionValueName(orderDetail.getOption2());
+        }
+        
+        // 선택된 옵션들 정보 수집 (기존 로직)
+        List<MyReviewRespDto.OptionInfoDto> selectedOptions = new ArrayList<>();
+        
+        if (orderDetail.hasOption1()) {
+            var option1Info = getOptionInfo(orderDetail.getOption1());
+            if (option1Info != null) {
+                selectedOptions.add(option1Info);
+            }
+        }
+        
+        if (orderDetail.hasOption2()) {
+            var option2Info = getOptionInfo(orderDetail.getOption2());
+            if (option2Info != null) {
+                selectedOptions.add(option2Info);
+            }
+        }
+        
+        // 리뷰 이미지들 조회
+        List<String> reviewImgUrls = new ArrayList<>();
+        if (userReview != null) {
+            reviewImgUrls = reviewImgRepository.findImageUrlsByReviewId(userReview.getReviewId());
+        }
+        
+        // OrderItem 정보 가져오기
+        var orderItem = orderDetail.getOrderItem();
+        
+        return MyReviewRespDto.MyReviewItemDto.builder()
+                // ===== 기본 정보 =====
+                .orderDetailId(orderDetail.getOrderDetailId())
+                .productId(orderDetail.getProductId())
+                .reviewStatus(orderDetail.getReviewStatus())
+                
+                // ===== 상품 정보 =====
+                .productName(product != null ? product.getName() : "알 수 없는 상품")
+                .productImgUrls(productImgUrls)
+                
+                // ===== 옵션 정보 =====
+                .option1(orderDetail.getOption1())
+                .option2(orderDetail.getOption2())
+                .option1Name(option1Name)
+                .option2Name(option2Name)
+                .selectedOptions(selectedOptions)
+                
+                // ===== 주문 정보 =====
+                .quantity(orderDetail.getQuantity())
+                .orderNum(orderItem != null ? orderItem.getOrderNum() : null)
+                .orderCreatedAt(orderItem != null ? orderItem.getCreatedAt() : null)
+                .paymentAt(orderItem != null ? orderItem.getPaymentAt() : null)
+                .deliveryStatus(orderItem != null ? orderItem.getDeliveryStatus() : null)
+                
+                // ===== 리뷰 내용 (새로 추가) =====
+                .reviewId(userReview != null ? userReview.getReviewId() : null)
+                .reviewRating(userReview != null ? userReview.getReviewRating() : null)
+                .reviewContent(userReview != null ? userReview.getReviewContent() : null)
+                .reviewImgUrls(reviewImgUrls)
+                .reviewCreatedAt(userReview != null ? userReview.getCreatedAt() : null)
                 .build();
     }
     
@@ -368,7 +463,6 @@ public class MyService {
             
             UserReview review = reviewOpt.get();
             Integer orderDetailId = review.getOrderDetailId();
-            Integer productId = review.getProductId();
             
             // 1. 연관된 OrderDetail의 review_status를 0으로 변경
             Optional<OrderDetail> orderDetailOpt = orderDetailRepository.findById(orderDetailId);
@@ -833,6 +927,431 @@ public class MyService {
             return RespDto.<String>builder()
                     .code(-1)
                     .data("리뷰 수정 중 오류가 발생했습니다.")
+                    .build();
+        }
+    }
+    
+    /**
+     * 최근 3개월 내 배송 건수 조회
+     */
+    @Transactional
+    public RespDto<DeliveryCountRespDto> getDeliveryCount(Long userCode) {
+        try {
+            log.info("배송 건수 조회 시작 - userCode: {}", userCode);
+            
+            // 사용자 존재 확인
+            if (!userRepository.existsByUserCode(userCode)) {
+                log.warn("존재하지 않는 사용자 - userCode: {}", userCode);
+                return RespDto.<DeliveryCountRespDto>builder()
+                        .code(-1)
+                        .data(null)
+                        .build();
+            }
+            
+            // 방법 1: 단일 쿼리로 모든 건수 조회
+            DeliveryCountRespDto deliveryCount = getDeliveryCountByNativeQuery(userCode);
+            
+            log.info("배송 건수 조회 완료 - userCode: {}, 결제완료: {}, 상품준비중: {}, 배송중: {}, 배송완료: {}", 
+                    userCode, deliveryCount.getPaymentCompleted(), deliveryCount.getPreparing(), 
+                    deliveryCount.getShipping(), deliveryCount.getDelivered());
+            
+            return RespDto.<DeliveryCountRespDto>builder()
+                    .code(1)
+                    .data(deliveryCount)
+                    .build();
+            
+        } catch (Exception e) {
+            log.error("배송 건수 조회 실패 - userCode: {}", userCode, e);
+            return RespDto.<DeliveryCountRespDto>builder()
+                    .code(-1)
+                    .data(null)
+                    .build();
+        }
+    }
+    
+    /**
+     * Native Query 사용 (MySQL DATE_SUB 함수 활용)
+     */
+    private DeliveryCountRespDto getDeliveryCountByNativeQuery(Long userCode) {
+    	List<Object[]> result = orderItemRepository.findDeliveryCountByUserCodeAndRecentThreeMonths(userCode);
+        
+        
+        if (!result.isEmpty()) {
+            Object[] row = result.get(0);
+
+            Number paymentCompleted = (Number) row[0];
+            Number preparing = (Number) row[1];
+            Number shipping = (Number) row[2];
+            Number delivered = (Number) row[3];
+
+            return DeliveryCountRespDto.of(
+                paymentCompleted.intValue(),
+                preparing.intValue(),
+                shipping.intValue(),
+                delivered.intValue()
+            );
+        }
+        
+       
+        return DeliveryCountRespDto.empty();
+    }
+    
+    /**
+     * 주문내역 조회 (페이징)
+     */
+    @Transactional
+    public RespDto<MyOrderListRespDto> getMyOrderList(Long userCode, Pageable pageable) {
+        try {
+            log.info("주문내역 조회 시작 - userCode: {}, page: {}, size: {}", 
+                    userCode, pageable.getPageNumber(), pageable.getPageSize());
+            
+            // 사용자 존재 확인
+            if (!userRepository.existsByUserCode(userCode)) {
+                log.warn("존재하지 않는 사용자 - userCode: {}", userCode);
+                return RespDto.<MyOrderListRespDto>builder()
+                        .code(-1)
+                        .data(null)
+                        .build();
+            }
+            
+            // 주문 내역 조회 (최신순)
+            Page<OrderItem> orderItemPage = orderItemRepository
+                    .findByUserCodeOrderByPaymentAtDesc(userCode, pageable);
+            
+            // DTO 변환
+            List<MyOrderListRespDto.MyOrderItemDto> orders = orderItemPage.getContent()
+                    .stream()
+                    .map(this::convertToMyOrderItemDto)
+                    .collect(Collectors.toList());
+            
+            // 페이지 정보 생성
+            MyOrderListRespDto.PaginationDto pagination = MyOrderListRespDto.PaginationDto.builder()
+                    .currentPage(orderItemPage.getNumber())
+                    .totalPage(orderItemPage.getTotalPages())
+                    .size(orderItemPage.getSize())
+                    .totalElements(orderItemPage.getTotalElements())
+                    .hasNext(orderItemPage.hasNext())
+                    .hasPrevious(orderItemPage.hasPrevious())
+                    .build();
+            
+            // 응답 데이터 생성
+            MyOrderListRespDto responseData = MyOrderListRespDto.builder()
+                    .orders(orders)
+                    .pagination(pagination)
+                    .build();
+            
+            log.info("주문내역 조회 완료 - userCode: {}, 총 {}건", 
+                    userCode, orderItemPage.getTotalElements());
+            
+            return RespDto.<MyOrderListRespDto>builder()
+                    .code(1)
+                    .data(responseData)
+                    .build();
+            
+        } catch (Exception e) {
+            log.error("주문내역 조회 실패 - userCode: {}", userCode, e);
+            return RespDto.<MyOrderListRespDto>builder()
+                    .code(-1)
+                    .data(null)
+                    .build();
+        }
+    }
+    
+    /**
+     * 주문상세 조회
+     */
+    @Transactional
+    public RespDto<MyOrderDetailRespDto> getMyOrderDetail(Integer orderId) {
+        try {
+            log.info("주문상세 조회 시작 - orderId: {}", orderId);
+            
+            // 주문 조회
+            Optional<OrderItem> orderItemOpt = orderItemRepository.findByOrderId(orderId);
+            if (orderItemOpt.isEmpty()) {
+                log.warn("존재하지 않는 주문 - orderId: {}", orderId);
+                return RespDto.<MyOrderDetailRespDto>builder()
+                        .code(-1)
+                        .data(null)
+                        .build();
+            }
+            
+            OrderItem orderItem = orderItemOpt.get();
+            
+            // 주문의 모든 상품 조회
+            List<OrderDetail> orderDetails = orderDetailRepository
+                    .findByOrderIdOrderByOrderDetailIdAsc(orderId);
+            
+            if (orderDetails.isEmpty()) {
+                log.warn("주문 상품이 없음 - orderId: {}", orderId);
+                return RespDto.<MyOrderDetailRespDto>builder()
+                        .code(-1)
+                        .data(null)
+                        .build();
+            }
+            
+            // DTO 변환
+            MyOrderDetailRespDto responseData = convertToMyOrderDetailRespDto(orderItem, orderDetails);
+            
+            log.info("주문상세 조회 완료 - orderId: {}, 상품 {}개", 
+                    orderId, orderDetails.size());
+            
+            return RespDto.<MyOrderDetailRespDto>builder()
+                    .code(1)
+                    .data(responseData)
+                    .build();
+            
+        } catch (Exception e) {
+            log.error("주문상세 조회 실패 - orderId: {}", orderId, e);
+            return RespDto.<MyOrderDetailRespDto>builder()
+                    .code(-1)
+                    .data(null)
+                    .build();
+        }
+    }
+    
+    /**
+     * OrderItem을 MyOrderItemDto로 변환 (주문내역용)
+     */
+    private MyOrderListRespDto.MyOrderItemDto convertToMyOrderItemDto(OrderItem orderItem) {
+        // 첫 번째 상품 조회
+        List<OrderDetail> orderDetails = orderDetailRepository
+                .findByOrderIdOrderByOrderDetailIdAsc(orderItem.getOrderId());
+        
+        if (orderDetails.isEmpty()) {
+            log.warn("주문 상품이 없음 - orderId: {}", orderItem.getOrderId());
+            // 빈 DTO 반환
+            return MyOrderListRespDto.MyOrderItemDto.builder()
+                    .orderId(orderItem.getOrderId())
+                    .orderNum(orderItem.getOrderNum())
+                    .paymentAt(orderItem.getPaymentAt())
+                    .finalPrice(orderItem.getFinalPrice())
+                    .deliveryPrice(orderItem.getDeliveryPrice())
+                    .deliveryStatus(orderItem.getDeliveryStatus())
+                    .build();
+        }
+        
+        OrderDetail firstOrderDetail = orderDetails.get(0);
+        Product firstProduct = firstOrderDetail.getProduct();
+        
+        // 상품명 생성 (외 N개 포함)
+        String productName = firstProduct != null ? firstProduct.getName() : "알 수 없는 상품";
+        int totalProductCount = orderDetails.size();
+        if (totalProductCount > 1) {
+            productName += " 외 " + (totalProductCount - 1) + "개";
+        }
+        
+        // 옵션명 조회
+        String option1Name = null;
+        String option2Name = null;
+        
+        if (firstOrderDetail.hasOption1()) {
+            option1Name = getOptionValueName(firstOrderDetail.getOption1());
+        }
+        if (firstOrderDetail.hasOption2()) {
+            option2Name = getOptionValueName(firstOrderDetail.getOption2());
+        }
+        
+        return MyOrderListRespDto.MyOrderItemDto.builder()
+                .orderId(orderItem.getOrderId())
+                .orderNum(orderItem.getOrderNum())
+                .paymentAt(orderItem.getPaymentAt())
+                
+                // 첫 번째 상품 정보
+                .productId(firstOrderDetail.getProductId())
+                .productName(productName)
+                .option1(firstOrderDetail.getOption1())
+                .option2(firstOrderDetail.getOption2())
+                .option1Name(option1Name)
+                .option2Name(option2Name)
+                .quantity(firstOrderDetail.getQuantity())
+                
+                // 주문 정보
+                .finalPrice(orderItem.getFinalPrice())
+                .deliveryPrice(orderItem.getDeliveryPrice())
+                .deliveryStatus(orderItem.getDeliveryStatus())
+                .build();
+    }
+    
+    /**
+     * OrderItem + OrderDetails를 MyOrderDetailRespDto로 변환
+     */
+    private MyOrderDetailRespDto convertToMyOrderDetailRespDto(OrderItem orderItem, List<OrderDetail> orderDetails) {
+        // 주문 정보
+        MyOrderDetailRespDto.OrderInfo orderInfo = MyOrderDetailRespDto.OrderInfo.builder()
+                .orderId(orderItem.getOrderId())
+                .orderNum(orderItem.getOrderNum())
+                .orderCreatedAt(orderItem.getCreatedAt())
+                .paymentAt(orderItem.getPaymentAt())
+                .deliveryStatus(orderItem.getDeliveryStatus())
+                .build();
+        
+     // payments 테이블에서 결제 정보 조회
+        Optional<Payments> paymentOpt = paymentsRepository.findByOrderId2(orderItem.getOrderId());
+        
+        MyOrderDetailRespDto.PaymentInfo.PaymentInfoBuilder paymentInfoBuilder = MyOrderDetailRespDto.PaymentInfo.builder()
+                // OrderItem에서 가져오는 기본 금액 정보
+                .totalPrice(orderItem.getTotalPrice())
+                .deliveryPrice(orderItem.getDeliveryPrice())
+                .totalDiscountPrice(orderItem.getTotalDiscountPrice())
+                .finalPrice(orderItem.getFinalPrice())
+                .usedMileage(orderItem.getUsedMileage())
+                .deliveryStatusReason(orderItem.getDeliveryStatusReason());
+        
+        // payments 테이블 정보가 있으면 추가
+        if (paymentOpt.isPresent()) {
+            Payments payment = paymentOpt.get();
+            
+            paymentInfoBuilder
+                .paymentMethod(payment.getPaymentMethod())
+                .paymentAmount(payment.getPaymentAmount())
+                .paymentStatus(payment.getPaymentStatus())
+                .pgProvider(payment.getPgProvider())
+                .paymentCreatedAt(payment.getCreatedAt())
+                .paymentUpdatedAt(payment.getUpdatedAt());
+                
+            log.debug("결제 정보 조회 완료 - orderId: {}, method: {}, status: {}", 
+                    orderItem.getOrderId(), payment.getPaymentMethod(), payment.getPaymentStatus());
+        } else {
+            // payments 정보가 없는 경우 기본값 설정
+            paymentInfoBuilder
+                .paymentMethod("정보없음")
+                .paymentAmount(null)
+                .paymentStatus("정보없음")
+                .pgProvider("정보없음")
+                .paymentCreatedAt(null)
+                .paymentUpdatedAt(null);
+                
+            log.warn("결제 정보 없음 - orderId: {}", orderItem.getOrderId());
+        }
+        
+        MyOrderDetailRespDto.PaymentInfo paymentInfo = paymentInfoBuilder.build();
+        
+        // 배송 정보
+        MyOrderDetailRespDto.DeliveryInfo deliveryInfo = MyOrderDetailRespDto.DeliveryInfo.builder()
+                .receivedUserName(orderItem.getReceivedUserName())
+                .receivedUserPhone(orderItem.getReceivedUserPhone())
+                .receivedUserZipCode(orderItem.getReceivedUserZipCode())
+                .receivedUserAddress(orderItem.getReceivedUserAddress())
+                .receivedUserAddress2(orderItem.getReceivedUserAddress2())
+                .message(orderItem.getMessage())
+                .build();
+        
+        // 주문 상품 목록
+        List<MyOrderDetailRespDto.OrderItemDetail> orderItems = orderDetails.stream()
+                .map(this::convertToOrderItemDetail)
+                .collect(Collectors.toList());
+        
+        return MyOrderDetailRespDto.builder()
+                .orderInfo(orderInfo)
+                .paymentInfo(paymentInfo)
+                .deliveryInfo(deliveryInfo)
+                .orderItems(orderItems)
+                .build();
+    }
+    
+    /**
+     * OrderDetail을 OrderItemDetail로 변환
+     */
+    private MyOrderDetailRespDto.OrderItemDetail convertToOrderItemDetail(OrderDetail orderDetail) {
+        Product product = orderDetail.getProduct();
+        
+        // 대표 상품 이미지 1개 조회
+        String productImgUrl = null;
+        if (product != null && product.getProductImages() != null && !product.getProductImages().isEmpty()) {
+            productImgUrl = product.getProductImages().get(0).getProductImgUrl();
+        }
+        
+        // 옵션명 조회
+        String option1Name = null;
+        String option2Name = null;
+        
+        if (orderDetail.hasOption1()) {
+            option1Name = getOptionValueName(orderDetail.getOption1());
+        }
+        if (orderDetail.hasOption2()) {
+            option2Name = getOptionValueName(orderDetail.getOption2());
+        }
+        
+        // ===== changeStatus 조회 (추가됨) =====
+        String changeStatus = null;
+        Integer orderStatus = orderDetail.getOrderStatus();
+        
+        // orderStatus가 2(교환) 또는 3(반품)이면 change_item에서 changeStatus 조회
+        if (orderStatus != null && (orderStatus == 2 || orderStatus == 3)) {
+            Optional<ChangeItem> changeItemOpt = changeItemRepository.findByOrderDetailId(orderDetail.getOrderDetailId());
+            if (changeItemOpt.isPresent()) {
+                changeStatus = changeItemOpt.get().getChangeStatus();
+                log.debug("changeStatus 조회 완료 - orderDetailId: {}, orderStatus: {}, changeStatus: {}", 
+                        orderDetail.getOrderDetailId(), orderStatus, changeStatus);
+            } else {
+                // change_item에 데이터가 없는 경우 (데이터 정합성 문제)
+                log.warn("orderStatus가 {0}이지만 change_item 데이터 없음 - orderDetailId: {}", 
+                        orderStatus, orderDetail.getOrderDetailId());
+                changeStatus = "정보없음";
+            }
+        }
+        
+        return MyOrderDetailRespDto.OrderItemDetail.builder()
+                .orderDetailId(orderDetail.getOrderDetailId())
+                .productId(orderDetail.getProductId())
+                .productName(product != null ? product.getName() : "알 수 없는 상품")
+                .orderStatus(orderDetail.getOrderStatus())
+                .changeStatus(changeStatus)
+                .productImgUrl(productImgUrl)
+                
+                // 옵션 정보
+                .option1(orderDetail.getOption1())
+                .option2(orderDetail.getOption2())
+                .option1Name(option1Name)
+                .option2Name(option2Name)
+                
+                // 가격 및 수량 정보
+                .quantity(orderDetail.getQuantity())
+                .basePrice(orderDetail.getBasePrice())
+                .optionPrice(orderDetail.getOptionPrice())
+                .lineTotalPrice(orderDetail.getLineTotalPrice())
+                .build();
+    }
+    
+    /**
+     * 주문별 배송정보 조회
+     */
+    @Transactional
+    public RespDto<DeliveryInfoRespDto> getDeliveryInfo(Integer orderId) {
+        try {
+            log.info("배송정보 조회 시작 - orderId: {}", orderId);
+            
+            // 주문 조회
+            Optional<OrderItem> orderItemOpt = orderItemRepository.findByOrderId(orderId);
+            if (orderItemOpt.isEmpty()) {
+                log.warn("존재하지 않는 주문 - orderId: {}", orderId);
+                return RespDto.<DeliveryInfoRespDto>builder()
+                        .code(-1)
+                        .data(null)
+                        .build();
+            }
+            
+            OrderItem orderItem = orderItemOpt.get();
+            
+            // 배송정보 생성
+            DeliveryInfoRespDto deliveryInfo = DeliveryInfoRespDto.of(
+                    orderItem.getDeliveryCom(),
+                    orderItem.getInvoiceNum()
+            );
+            
+            log.info("배송정보 조회 완료 - orderId: {}, deliveryCom: {}, invoiceNum: {}", 
+                    orderId, orderItem.getDeliveryCom(), orderItem.getInvoiceNum());
+            
+            return RespDto.<DeliveryInfoRespDto>builder()
+                    .code(1)
+                    .data(deliveryInfo)
+                    .build();
+            
+        } catch (Exception e) {
+            log.error("배송정보 조회 실패 - orderId: {}", orderId, e);
+            return RespDto.<DeliveryInfoRespDto>builder()
+                    .code(-1)
+                    .data(null)
                     .build();
         }
     }

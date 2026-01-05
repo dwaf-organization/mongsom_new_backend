@@ -32,7 +32,7 @@ public class Payments {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "payment_id")
-    private Integer paymentId;  // 단일 PK, AUTO_INCREMENT
+    private Integer paymentId;
     
     @Column(name = "order_id", nullable = false)
     private Integer orderId;
@@ -40,21 +40,20 @@ public class Payments {
     @Column(name = "user_code", nullable = false)
     private Long userCode;
     
-    @Column(name = "payment_method")
-    private String paymentMethod;  // 신용카드, 계좌이체, 카카오페이, 토스페이 등
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod;
     
     @Column(name = "payment_amount")
-    private Integer paymentAmount;  // 결제금액
+    private Integer paymentAmount;
     
-    @Column(name = "payment_status")
-    @Builder.Default
-    private String paymentStatus = "PENDING";  // PENDING, COMPLETED, FAILED, CANCELLED
+    @Column(name = "payment_status", length = 20)
+    private String paymentStatus; // 대기중, 결제완료, 결제실패, 결제취소
     
-    @Column(name = "payment_key")
-    private String paymentKey;  // PG사에서 제공하는 결제 고유키
+    @Column(name = "payment_key", length = 200)
+    private String paymentKey; // API 응답에는 포함하지 않음
     
-    @Column(name = "pg_provider")
-    private String pgProvider;  // PG사 (토스페이먼츠, 카카오페이 등)
+    @Column(name = "pg_provider", length = 50)
+    private String pgProvider;
     
     @CreationTimestamp
     @Column(name = "created_at")

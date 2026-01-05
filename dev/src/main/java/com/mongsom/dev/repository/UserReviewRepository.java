@@ -20,6 +20,7 @@ public interface UserReviewRepository extends JpaRepository<UserReview, Integer>
     @Query("SELECT ur FROM UserReview ur " +
            "JOIN FETCH ur.user u " +
            "WHERE ur.productId = :productId " +
+           "AND ur.adminHidden = 0 " +
            "ORDER BY ur.createdAt DESC")
     Page<UserReview> findByProductIdOrderByCreatedAtDesc(@Param("productId") Integer productId, Pageable pageable);
     
@@ -147,5 +148,6 @@ public interface UserReviewRepository extends JpaRepository<UserReview, Integer>
      */
     @Query("SELECT ur FROM UserReview ur WHERE ur.userCode = :userCode AND ur.reviewId = :reviewId")
     Optional<UserReview> findByUserCodeAndReviewId(@Param("userCode") Long userCode, @Param("reviewId") Integer reviewId);
+    
     
 }

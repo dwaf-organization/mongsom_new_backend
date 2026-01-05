@@ -1,6 +1,7 @@
 package com.mongsom.dev.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -66,10 +67,21 @@ public interface ChangeItemRepository extends JpaRepository<ChangeItem, Integer>
     @Query("SELECT COUNT(ci) FROM ChangeItem ci WHERE ci.changeStatus = :changeStatus")
     long countByChangeStatus(@Param("changeStatus") Integer changeStatus);
     
-    // 승인 상태 업데이트
-    @Modifying
-    @Transactional
-    @Query("UPDATE ChangeItem ci SET ci.approvalStatus = :approvalStatus WHERE ci.changeId = :changeId")
-    int updateApprovalStatus(@Param("changeId") Integer changeId, @Param("approvalStatus") Integer approvalStatus);
+    /**
+     * 주문 상세 ID로 교환/반품 신청 조회 (중복 체크용)
+     */
+    Optional<ChangeItem> findByOrderDetailId(Integer orderDetailId);
+    
+    /**
+     * 주문 상세 ID 존재 여부 확인
+     */
+    boolean existsByOrderDetailId(Integer orderDetailId);
+    
+    /**
+     * 사용자와 주문 상세 ID로 교환/반품 신청 조회 (권한 확인용)
+     */
+    @Query("SELECT ci FROM ChangeItem ci WHERE ci.userCode = :userCode AND ci.orderDetailId = :orderDetailId")
+    Optional<ChangeItem> findByUserCodeAndOrderDetailId(@Param("userCode") Long userCode, 
+                                                       @Param("orderDetailId") Integer orderDetailId);
     
 }

@@ -43,6 +43,13 @@ public class MyReviewRespDto {
         private LocalDateTime orderCreatedAt; // 주문 생성일
         private LocalDateTime paymentAt;   // 결제일시
         private String deliveryStatus;     // 배송 상태
+        
+        // 리뷰 내용
+        private Integer reviewId;          // 리뷰 ID
+        private Integer reviewRating;      // 리뷰 평점
+        private String reviewContent;      // 리뷰 내용
+        private List<String> reviewImgUrls; // 리뷰 이미지들
+        private LocalDateTime reviewCreatedAt; // 리뷰 작성일
     }
     
     @Data

@@ -17,12 +17,18 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.mongsom.dev.common.dto.RespDto;
+import com.mongsom.dev.dto.change.reqDto.ChangeCreateReqDto;
+import com.mongsom.dev.dto.change.reqDto.ChangeDeleteReqDto;
+import com.mongsom.dev.dto.delivery.respDto.DeliveryCountRespDto;
+import com.mongsom.dev.dto.delivery.respDto.DeliveryInfoRespDto;
+import com.mongsom.dev.dto.order.respDto.MyOrderDetailRespDto;
+import com.mongsom.dev.dto.order.respDto.MyOrderListRespDto;
 import com.mongsom.dev.dto.review.reqDto.ReviewCreateReqDto;
 import com.mongsom.dev.dto.review.reqDto.ReviewUpdateReqDto;
 import com.mongsom.dev.dto.review.respDto.AdminReviewDetailRespDto;
 import com.mongsom.dev.dto.review.respDto.AdminReviewListRespDto;
 import com.mongsom.dev.dto.review.respDto.MyReviewRespDto;
-import com.mongsom.dev.dto.review.respDto.WrittenReviewRespDto;
+import com.mongsom.dev.service.ChangeService;
 import com.mongsom.dev.service.MyService;
 
 import jakarta.validation.Valid;
@@ -36,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MyController {
     
     private final MyService myService;
+    private final ChangeService changeService;
     
     /**
      * 작성 가능한 리뷰 조회 (review_status = 0)
@@ -140,7 +147,7 @@ public class MyController {
     /**
      * 리뷰 숨김 처리 (관리자)
      */
-    @PutMapping("/hide/{reviewId}")
+    @PutMapping("/review/hide/{reviewId}")
     public ResponseEntity<RespDto<String>> hideReview(
             @PathVariable("reviewId") Integer reviewId) {
         
@@ -170,7 +177,7 @@ public class MyController {
     /**
      * 리뷰 숨김 해제 (관리자)
      */
-    @PutMapping("/show/{reviewId}")
+    @PutMapping("/review/show/{reviewId}")
     public ResponseEntity<RespDto<String>> showReview(
             @PathVariable("reviewId") Integer reviewId) {
         
@@ -200,7 +207,7 @@ public class MyController {
     /**
      * 리뷰 완전 삭제 (관리자, 하드 딜리트)
      */
-    @DeleteMapping("/delete/{reviewId}")
+    @DeleteMapping("/review/delete/{reviewId}")
     public ResponseEntity<RespDto<String>> deleteReview(
             @PathVariable("reviewId") Integer reviewId) {
         
@@ -338,48 +345,142 @@ public class MyController {
         return ResponseEntity.status(status).body(response);
     }
     
-//    // 배송조회
-//    @GetMapping("/delivery/{orderId}")
-//    public ResponseEntity<RespDto<DeliveryRespDto>> getDeliveryInfo(@PathVariable("orderId") Integer orderId) {
-//        
-//        log.info("배송 정보 조회 요청 - orderId: {}", orderId);
-//        
-//        RespDto<DeliveryRespDto> response = myService.getDeliveryInfo(orderId);
-//        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
-//        return ResponseEntity.status(status).body(response);
-//    }
-//   
-//    //교환/반품 신청
-//    @PostMapping("/change/create")
-//    public ResponseEntity<RespDto<String>> createChangeRequest(@Valid @RequestBody ChangeCreateReqDto reqDto) {
-//        
-//        String changeType = (reqDto.getChangeStatus() == 1) ? "교환" : "반품";
-//        log.info("{} 신청 요청 - orderDetailId: {}, orderId: {}, userCode: {}", 
-//                changeType, reqDto.getOrderDetailId(), reqDto.getOrderId(), reqDto.getUserCode());
-//        
-//        RespDto<String> response = myService.createChangeRequest(reqDto);
-//        
-//        if (response.getCode() == 1) {
-//            return ResponseEntity.ok(response);
-//        } else {
-//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-//        }
-//    }
-//    
-//    // 교환/반품 신청 취소
-//    @PostMapping("/change/delete")
-//    public ResponseEntity<RespDto<String>> deleteChangeRequest(@Valid @RequestBody ChangeDeleteReqDto reqDto) {
-//        
-//        log.info("교환/반품 신청 취소 요청 - orderDetailId: {}, orderId: {}, userCode: {}", 
-//                reqDto.getOrderDetailId(), reqDto.getOrderId(), reqDto.getUserCode());
-//        
-//        RespDto<String> response = myService.deleteChangeRequest(reqDto);
-//        
-//        if (response.getCode() == 1) {
-//            return ResponseEntity.ok(response);
-//        } else {
-//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-//        }
-//    }
+    /**
+     * 최근 3개월 내 배송 건수 조회
+     */
+    @GetMapping("/delivery/number/{userCode}")
+    public ResponseEntity<RespDto<DeliveryCountRespDto>> getDeliveryCount(
+            @PathVariable("userCode") Long userCode) {
+        
+        log.info("=== 배송 건수 조회 요청 ===");
+        log.info("userCode: {}", userCode);
+        
+        RespDto<DeliveryCountRespDto> response = myService.getDeliveryCount(userCode);
+        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
+        
+        log.info("배송 건수 조회 결과 - code: {}", response.getCode());
+        
+        return ResponseEntity.status(status).body(response);
+    }
+    
+    /**
+     * 주문내역 조회 (페이징)
+     */
+    @GetMapping("/order/{userCode}")
+    public ResponseEntity<RespDto<MyOrderListRespDto>> getMyOrderList(
+            @PathVariable("userCode") Long userCode,
+            @RequestParam(value = "page", defaultValue = "0") Integer page,
+            @RequestParam(value = "size", defaultValue = "10") Integer size) {
+        
+        log.info("=== 주문내역 조회 요청 ===");
+        log.info("userCode: {}, page: {}, size: {}", userCode, page, size);
+        
+        // 페이징 유효성 검증
+        if (page < 0) {
+            log.warn("잘못된 page 값 - page: {}", page);
+            return ResponseEntity.badRequest().body(
+                    RespDto.<MyOrderListRespDto>builder()
+                            .code(-1)
+                            .data(null)
+                            .build()
+            );
+        }
+        
+        if (size < 1 || size > 100) {
+            log.warn("잘못된 size 값 - size: {}", size);
+            return ResponseEntity.badRequest().body(
+                    RespDto.<MyOrderListRespDto>builder()
+                            .code(-1)
+                            .data(null)
+                            .build()
+            );
+        }
+        
+        Pageable pageable = PageRequest.of(page, size);
+        RespDto<MyOrderListRespDto> response = myService.getMyOrderList(userCode, pageable);
+        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
+        
+        log.info("주문내역 조회 결과 - code: {}", response.getCode());
+        
+        return ResponseEntity.status(status).body(response);
+    }
+    
+    /**
+     * 주문상세 조회
+     */
+    @GetMapping("/order/detail/{orderId}")
+    public ResponseEntity<RespDto<MyOrderDetailRespDto>> getMyOrderDetail(
+            @PathVariable("orderId") Integer orderId) {
+        
+        log.info("=== 주문상세 조회 요청 ===");
+        log.info("orderId: {}", orderId);
+        
+        RespDto<MyOrderDetailRespDto> response = myService.getMyOrderDetail(orderId);
+        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
+        
+        log.info("주문상세 조회 결과 - code: {}", response.getCode());
+        
+        return ResponseEntity.status(status).body(response);
+    }
+    
+    /**
+     * 주문별 배송정보 조회
+     */
+    @GetMapping("/delivery/find/{orderId}")
+    public ResponseEntity<RespDto<DeliveryInfoRespDto>> getDeliveryInfo(
+            @PathVariable("orderId") Integer orderId) {
+        
+        log.info("=== 배송정보 조회 요청 ===");
+        log.info("orderId: {}", orderId);
+        
+        RespDto<DeliveryInfoRespDto> response = myService.getDeliveryInfo(orderId);
+        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
+        
+        log.info("배송정보 조회 결과 - code: {}", response.getCode());
+        
+        return ResponseEntity.status(status).body(response);
+    }
+    /**
+     * 교환/반품 신청
+     */
+    @PostMapping("/change/create")
+    public ResponseEntity<RespDto<String>> createChangeRequest(
+            @Valid @RequestBody ChangeCreateReqDto reqDto) {
+        
+        log.info("=== 교환/반품 신청 요청 ===");
+        log.info("userCode: {}, orderDetailId: {}, changeType: {}", 
+                reqDto.getUserCode(), reqDto.getOrderDetailId(), reqDto.getChangeType());
+        
+        RespDto<String> response = changeService.createChangeRequest(reqDto);
+        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : 
+                           response.getCode() == -2 ? HttpStatus.FORBIDDEN :
+                           response.getCode() == -3 ? HttpStatus.BAD_REQUEST :
+                           response.getCode() == -4 ? HttpStatus.CONFLICT :
+                           HttpStatus.BAD_REQUEST;
+        
+        log.info("교환/반품 신청 결과 - code: {}", response.getCode());
+        
+        return ResponseEntity.status(status).body(response);
+    }
+    
+    /**
+     * 교환/반품 신청 취소
+     */
+    @DeleteMapping("/change/delete")
+    public ResponseEntity<RespDto<String>> deleteChangeRequest(
+            @Valid @RequestBody ChangeDeleteReqDto reqDto) {
+        
+        log.info("=== 교환/반품 취소 요청 ===");
+        log.info("userCode: {}, orderDetailId: {}", reqDto.getUserCode(), reqDto.getOrderDetailId());
+        
+        RespDto<String> response = changeService.deleteChangeRequest(reqDto);
+        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : 
+                           response.getCode() == -2 ? HttpStatus.CONFLICT :
+                           HttpStatus.BAD_REQUEST;
+        
+        log.info("교환/반품 취소 결과 - code: {}", response.getCode());
+        
+        return ResponseEntity.status(status).body(response);
+    }
     
 }

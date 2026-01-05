@@ -100,4 +100,37 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
     @Modifying
     @Query("UPDATE OrderItem oi SET oi.deliveryStatus = ?2 WHERE oi.orderId = ?1")
     int updateDeliveryStatus(Integer orderId, String deliveryStatus);
+    
+    /**
+     * 최근 3개월 내 배송 상태별 건수 조회 (수정됨)
+     * Native Query 사용으로 날짜 비교 문제 해결
+     */
+    @Query(value = "SELECT " +
+                   "COUNT(CASE WHEN delivery_status = '결제완료' THEN 1 END) as paymentCompleted, " +
+                   "COUNT(CASE WHEN delivery_status = '상품준비중' THEN 1 END) as preparing, " +
+                   "COUNT(CASE WHEN delivery_status = '배송중' THEN 1 END) as shipping, " +
+                   "COUNT(CASE WHEN delivery_status = '배송완료' THEN 1 END) as delivered " +
+                   "FROM order_item " +
+                   "WHERE user_code = :userCode " +
+                   "AND payment_at >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 3 MONTH)",
+           nativeQuery = true)
+    List<Object[]> findDeliveryCountByUserCodeAndRecentThreeMonths(@Param("userCode") Long userCode);
+    
+    /**
+     * 대안: 개별 쿼리로 각 상태별 건수 조회 (더 명확함)
+     */
+    @Query("SELECT COUNT(oi) FROM OrderItem oi " +
+           "WHERE oi.userCode = :userCode " +
+           "AND oi.deliveryStatus = :deliveryStatus " +
+           "AND oi.paymentAt >= :threeMonthsAgo")
+    Long countByUserCodeAndDeliveryStatusAndRecentThreeMonths(@Param("userCode") Long userCode,
+                                                            @Param("deliveryStatus") String deliveryStatus,
+                                                            @Param("threeMonthsAgo") LocalDateTime threeMonthsAgo);
+    
+    /**
+     * 사용자별 주문 내역 조회 (최신순, 페이징)
+     */
+    Page<OrderItem> findByUserCodeOrderByPaymentAtDesc(Long userCode, Pageable pageable);
+    
+    
 }

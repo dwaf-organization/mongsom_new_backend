@@ -27,6 +27,8 @@ public class CartRespDto {
         private Integer productId;
         private String productName;
         private Integer basePrice;
+        private Integer salesMargin;
+        private Integer discountPer;
         private Integer discountPrice;
         private Integer option1; // 첫 번째 옵션 추가
         private Integer option2; // 두 번째 옵션 추가

@@ -178,4 +178,32 @@ List<Object[]> findOrderDetailItemsByOrderId(@Param("orderId") Integer orderId);
            "WHERE oi.userCode = :userCode")
     Object[] findReviewStatsByUser(@Param("userCode") Long userCode);
     
+    /**
+     * 작성된 리뷰 조회 (review_status = 1, 관리자 임의숨김 제외)
+     * UserReview 정보도 함께 조회하도록 수정
+     */
+    @Query("SELECT od, ur FROM OrderDetail od " +
+           "JOIN od.orderItem oi " +
+           "LEFT JOIN UserReview ur ON ur.orderDetailId = od.orderDetailId " +
+           "WHERE oi.userCode = :userCode " +
+           "AND od.reviewStatus = 1 " +
+           "AND (ur.adminHidden IS NULL OR ur.adminHidden = 0) " +
+           "ORDER BY oi.paymentAt DESC")
+    Page<Object[]> findWrittenReviewsWithReviewInfo(@Param("userCode") Long userCode, Pageable pageable);
+    
+    /**
+     * 주문의 첫 번째 상품 조회 (주문내역조회용)
+     */
+    @Query("SELECT od FROM OrderDetail od " +
+           "WHERE od.orderId = :orderId " +
+           "ORDER BY od.orderDetailId ASC")
+    List<OrderDetail> findByOrderIdOrderByOrderDetailIdAsc(@Param("orderId") Integer orderId);
+    
+    /**
+     * 주문의 총 상품 개수 조회
+     */
+    @Query("SELECT COUNT(od) FROM OrderDetail od WHERE od.orderId = :orderId")
+    Long countByOrderId(@Param("orderId") Integer orderId);
+    
+    
 }

@@ -284,6 +284,8 @@ public class CartService {
                 .productId(cart.getProductId())
                 .productName(product != null ? product.getName() : "알 수 없는 상품")
                 .basePrice(cart.getBasePrice())          // DB 저장된 값
+                .salesMargin(product.getSalesMargin())
+                .discountPer(product.getDiscountPer())
                 .discountPrice(cart.getBasePrice())      // 할인된 가격이므로 동일
                 .option1(cart.getOption1())
                 .option2(cart.getOption2())

@@ -21,6 +21,10 @@ public interface PaymentsRepository extends JpaRepository<Payments, Integer> {
     @Query("SELECT p FROM Payments p WHERE p.orderId = :orderId")
     List<Payments> findByOrderId(@Param("orderId") Integer orderId);
     
+    // 특정 주문의 결제 정보 조회
+    @Query("SELECT p FROM Payments p WHERE p.orderId = :orderId")
+    Optional<Payments> findByOrderId2(@Param("orderId") Integer orderId);
+    
     // 특정 사용자의 결제 내역 조회
     @Query("SELECT p FROM Payments p WHERE p.userCode = :userCode ORDER BY p.createdAt DESC")
     List<Payments> findByUserCodeOrderByCreatedAtDesc(@Param("userCode") Long userCode);
