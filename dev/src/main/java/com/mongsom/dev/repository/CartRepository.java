@@ -36,20 +36,6 @@ public interface CartRepository extends JpaRepository<Cart, Integer> {
     @Query("SELECT COUNT(c) FROM Cart c WHERE c.userCode = :userCode")
     Long countByUserCode(@Param("userCode") Long userCode);
     
-    // 특정 상품이 이미 장바구니에 있는지 확인 (옵션 조합 포함)
-    @Query("SELECT c FROM Cart c WHERE c.userCode = :userCode AND c.productId = :productId " +
-           "AND (:combinationId IS NULL AND c.combinationId IS NULL OR c.combinationId = :combinationId)")
-    Optional<Cart> findByUserCodeAndProductIdAndCombinationId(
-            @Param("userCode") Long userCode, 
-            @Param("productId") Integer productId, 
-            @Param("combinationId") Integer combinationId);
-    
-    // 옵션이 없는 상품 장바구니 조회
-    @Query("SELECT c FROM Cart c WHERE c.userCode = :userCode AND c.productId = :productId AND c.combinationId IS NULL")
-    Optional<Cart> findByUserCodeAndProductIdAndCombinationIdIsNull(
-            @Param("userCode") Long userCode, 
-            @Param("productId") Integer productId);
-    
     // 사용자의 특정 상품 모든 장바구니 조회
     @Query("SELECT c FROM Cart c WHERE c.userCode = :userCode AND c.productId = :productId")
     List<Cart> findByUserCodeAndProductId(
@@ -84,48 +70,68 @@ public interface CartRepository extends JpaRepository<Cart, Integer> {
     @Modifying
     @Query("DELETE FROM Cart c WHERE c.userCode = :userCode")
     int deleteByUserCode(@Param("userCode") Long userCode);
-    
-    // 옵션 조합별 삭제 (정확한 매칭)
-    @Modifying
-    @Query("DELETE FROM Cart c WHERE c.userCode = :userCode AND c.productId = :productId AND c.combinationId = :combinationId")
-    int deleteByUserCodeAndProductIdAndCombinationId(
-            @Param("userCode") Long userCode,
-            @Param("productId") Integer productId,
-            @Param("combinationId") Integer combinationId);
-    
-    // 옵션 없는 상품 삭제
-    @Modifying
-    @Query("DELETE FROM Cart c WHERE c.userCode = :userCode AND c.productId = :productId AND c.combinationId IS NULL")
-    int deleteByUserCodeAndProductIdAndCombinationIdIsNull(
-            @Param("userCode") Long userCode,
-            @Param("productId") Integer productId);
 
     /**
      * 사용자별 장바구니 조회 (상품, 옵션조합 정보 포함)
      */
     @Query("SELECT c FROM Cart c " +
-           "LEFT JOIN FETCH c.product p " +
-           "LEFT JOIN FETCH c.optionCombination oc " +
-           "WHERE c.userCode = :userCode " +
-           "ORDER BY c.createdAt DESC")
-    List<Cart> findByUserCodeWithDetails(@Param("userCode") Long userCode);
+    	       "LEFT JOIN FETCH c.product p " +
+    	       "LEFT JOIN FETCH c.optionValue1 ov1 " +
+    	       "LEFT JOIN FETCH c.optionValue2 ov2 " +
+    	       "WHERE c.userCode = :userCode " +
+    	       "ORDER BY c.createdAt DESC")
+    	List<Cart> findByUserCodeWithDetails(@Param("userCode") Long userCode);
 
+    /**
+     * 동일 상품+옵션 존재 여부 확인
+     */
+    Optional<Cart> findByUserCodeAndProductIdAndOption1AndOption2(
+        Long userCode, Integer productId, Integer option1, Integer option2);
+    
+    /**
+     * 장바구니 아이템 삭제 (사용자+상품+옵션 기준)
+     */
+    @Modifying
+    @Query("DELETE FROM Cart c WHERE c.userCode = :userCode " +
+           "AND c.productId = :productId " +
+           "AND (:option1 IS NULL AND c.option1 IS NULL OR c.option1 = :option1) " +
+           "AND (:option2 IS NULL AND c.option2 IS NULL OR c.option2 = :option2)")
+    void deleteByUserCodeAndProductIdAndOptions(@Param("userCode") Long userCode, 
+                                               @Param("productId") Integer productId, 
+                                               @Param("option1") Integer option1,
+                                               @Param("option2") Integer option2);
+    
     /**
      * 장바구니 수량 업데이트
      */
     @Modifying
-    @Query("UPDATE Cart c SET c.quantity = :quantity WHERE c.userCode = :userCode AND c.productId = :productId AND c.combinationId = :combinationId")
-    int updateQuantityByUserCodeAndProductIdAndCombinationId(@Param("userCode") Long userCode,
-                                                             @Param("productId") Integer productId, 
-                                                             @Param("combinationId") Integer combinationId,
-                                                             @Param("quantity") Integer quantity);
+    @Query("UPDATE Cart c SET c.quantity = :quantity " +
+           "WHERE c.userCode = :userCode " +
+           "AND c.productId = :productId " +
+           "AND (:option1 IS NULL AND c.option1 IS NULL OR c.option1 = :option1) " +
+           "AND (:option2 IS NULL AND c.option2 IS NULL OR c.option2 = :option2)")
+    int updateQuantityByUserCodeAndProductIdAndOptions(@Param("userCode") Long userCode,
+                                                      @Param("productId") Integer productId, 
+                                                      @Param("option1") Integer option1,
+                                                      @Param("option2") Integer option2,
+                                                      @Param("quantity") Integer quantity);
+    
+    /**
+     * 체크된 장바구니 아이템들만 조회
+     */
+    @Query("SELECT c FROM Cart c " +
+           "LEFT JOIN FETCH c.product p " +
+           "LEFT JOIN FETCH c.optionValue1 ov1 " +
+           "LEFT JOIN FETCH c.optionValue2 ov2 " +
+           "WHERE c.userCode = :userCode AND c.checkStatus = 1 " +
+           "ORDER BY c.createdAt DESC")
+    List<Cart> findCheckedCartItemsByUserCode(@Param("userCode") Long userCode);
 
     /**
-     * 옵션 없는 상품 수량 업데이트
+     * 체크된 아이템 개수 조회
      */
-    @Modifying
-    @Query("UPDATE Cart c SET c.quantity = :quantity WHERE c.userCode = :userCode AND c.productId = :productId AND c.combinationId IS NULL")
-    int updateQuantityByUserCodeAndProductIdAndCombinationIdIsNull(@Param("userCode") Long userCode,
-                                                                   @Param("productId") Integer productId,
-                                                                   @Param("quantity") Integer quantity);
+    @Query("SELECT COUNT(c) FROM Cart c WHERE c.userCode = :userCode AND c.checkStatus = 1")
+    Long countCheckedItemsByUserCode(@Param("userCode") Long userCode);
+    
+    
 }

@@ -99,7 +99,7 @@ public class OrderService {
                     .usedMileage(reqDto.getUsedMileage())
                     .deliveryStatus("결제대기")  // 고정값
                     .deliveryStatusReason(deliveryStatusReason)
-                    .paymentAt(reqDto.getPaymentAt() != null ? reqDto.getPaymentAt() : LocalDateTime.now())
+                    .paymentAt(LocalDateTime.now())
                     .orderNum("temp")
                     .build();
             
@@ -117,9 +117,9 @@ public class OrderService {
             for (OrderCreateReqDto.OrderDetailDto detailDto : reqDto.getOrderDetails()) {
                 OrderDetail orderDetail = OrderDetail.createOrderDetail(
                     orderId,
-                    reqDto.getUserCode(),
                     detailDto.getProductId(),
-                    detailDto.getCombinationId(),
+                    detailDto.getOption1(),
+                    detailDto.getOption2(),
                     detailDto.getQuantity(),
                     detailDto.getBasePrice(),
                     detailDto.getOptionPrice()
@@ -193,10 +193,9 @@ public class OrderService {
             OrderDetail orderDetail = orderDetailOpt.get();
             
             // 3. 권한 검증 (주문자 본인인지 확인)
-            if (!orderDetail.getUserCode().equals(reqDto.getUserCode()) || 
-                !orderDetail.getOrderId().equals(reqDto.getOrderId())) {
-                log.warn("주문 취소 권한 없음 - userCode: {}, orderId: {}, orderDetailId: {}", 
-                        reqDto.getUserCode(), reqDto.getOrderId(), reqDto.getOrderDetailId());
+            if (!orderDetail.getOrderId().equals(reqDto.getOrderId())) {
+                log.warn("주문 취소 권한 없음 - orderId: {}, orderDetailId: {}", 
+                        reqDto.getOrderId(), reqDto.getOrderDetailId());
                 return RespDto.<Boolean>builder()
                         .code(-1)
                         .data(false)

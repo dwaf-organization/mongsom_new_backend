@@ -1,6 +1,7 @@
 package com.mongsom.dev.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -52,4 +53,34 @@ public interface ProductOptionValueRepository extends JpaRepository<ProductOptio
     // 삭제된 것 포함해서 조회하는 메서드도 추가
     @Query("SELECT pov FROM ProductOptionValue pov WHERE pov.optionTypeId = :optionTypeId")
     List<ProductOptionValue> findByOptionTypeIdIncludingDeleted(@Param("optionTypeId") Integer optionTypeId);
+    
+    /**
+     * 특정 상품의 유효한 옵션값인지 확인
+     * 옵션값이 해당 상품의 옵션 타입에 속하는지 검증
+     */
+    @Query("SELECT COUNT(ov) > 0 FROM ProductOptionValue ov " +
+           "JOIN ProductOptionType ot ON ov.optionTypeId = ot.optionTypeId " +
+           "WHERE ov.optionValueId = :optionValueId " +
+           "AND ot.productId = :productId " +
+           "AND (ov.isDeleted IS NULL OR ov.isDeleted = 0) " +
+           "AND (ot.isDeleted IS NULL OR ot.isDeleted = 0)")
+    boolean existsByOptionValueIdAndProductId(@Param("optionValueId") Integer optionValueId, 
+                                             @Param("productId") Integer productId);
+
+    /**
+     * 옵션값 ID로 상품 ID 조회
+     */
+    @Query("SELECT ot.productId FROM ProductOptionValue ov " +
+           "JOIN ProductOptionType ot ON ov.optionTypeId = ot.optionTypeId " +
+           "WHERE ov.optionValueId = :optionValueId")
+    Optional<Integer> findProductIdByOptionValueId(@Param("optionValueId") Integer optionValueId);
+
+    /**
+     * 옵션값과 함께 옵션 타입 정보도 조회
+     */
+    @Query("SELECT ov FROM ProductOptionValue ov " +
+           "JOIN FETCH ov.optionType ot " +
+           "WHERE ov.optionValueId = :optionValueId")
+    Optional<ProductOptionValue> findByIdWithOptionType(@Param("optionValueId") Integer optionValueId);
+    
 }

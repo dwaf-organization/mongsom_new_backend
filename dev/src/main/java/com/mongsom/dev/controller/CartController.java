@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.mongsom.dev.common.dto.RespDto;
 import com.mongsom.dev.dto.cart.reqDto.CartAddReqDto;
+import com.mongsom.dev.dto.cart.reqDto.CartAllCheckReqDto;
+import com.mongsom.dev.dto.cart.reqDto.CartChangeCheckReqDto;
 import com.mongsom.dev.dto.cart.reqDto.CartUpdateQuantityReqDto;
 import com.mongsom.dev.dto.cart.respDto.CartRespDto;
 import com.mongsom.dev.service.CartService;
@@ -30,8 +32,6 @@ public class CartController {
     
     private final CartService cartService;
     
- // CartController 새로운 버전 - combinationId 기반
-
     /**
      * 장바구니 추가
      */
@@ -40,8 +40,8 @@ public class CartController {
             @Valid @RequestBody CartAddReqDto reqDto) {
         
         log.info("=== 장바구니 추가 요청 ===");
-        log.info("userCode: {}, productId: {}, combinationId: {}, quantity: {}", 
-                reqDto.getUserCode(), reqDto.getProductId(), reqDto.getCombinationId(), reqDto.getQuantity());
+        log.info("userCode: {}, productId: {}, option1: {}, option2: {}, quantity: {}", 
+                reqDto.getUserCode(), reqDto.getProductId(), reqDto.getOption1(), reqDto.getOption2(), reqDto.getQuantity());
         
         RespDto<String> response = cartService.addToCart(reqDto);
         HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
@@ -82,8 +82,7 @@ public class CartController {
             @Valid @RequestBody CartUpdateQuantityReqDto reqDto) {
         
         log.info("=== 장바구니 수량 변경 요청 ===");
-        log.info("userCode: {}, productId: {}, combinationId: {}, quantity: {}", 
-                reqDto.getUserCode(), reqDto.getProductId(), reqDto.getCombinationId(), reqDto.getQuantity());
+        log.info("cartId: {}, quantity: {}", reqDto.getCartId(), reqDto.getQuantity());
         
         RespDto<String> response = cartService.updateQuantity(reqDto);
         HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
@@ -96,16 +95,14 @@ public class CartController {
     /**
      * 장바구니 아이템 삭제
      */
-    @DeleteMapping("/delete/{userCode}/{productId}")
+    @DeleteMapping("/delete/{cartId}")
     public ResponseEntity<RespDto<String>> deleteCartItem(
-            @PathVariable("userCode") Long userCode,
-            @PathVariable("productId") Integer productId,
-            @RequestParam(value = "combinationId", required = false) Integer combinationId) {
+            @PathVariable("cartId") Integer cartId) {
         
         log.info("=== 장바구니 아이템 삭제 요청 ===");
-        log.info("userCode: {}, productId: {}, combinationId: {}", userCode, productId, combinationId);
+        log.info("cartId: {}", cartId);
         
-        RespDto<String> response = cartService.deleteCartItem(userCode, productId, combinationId);
+        RespDto<String> response = cartService.deleteCartItem(cartId);
         HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
         
         log.info("아이템 삭제 결과 - code: {}", response.getCode());
@@ -113,23 +110,39 @@ public class CartController {
         return ResponseEntity.status(status).body(response);
     }
     
-//    //장바구니체크변경
-//    @PutMapping("/change/check")
-//    public ResponseEntity<RespDto<String>> changeCheckStatus(
-//            @Valid @RequestBody CartChangeCheckReqDto reqDto) {
-//        RespDto<String> response = cartService.changeCheckStatus(reqDto);
-//        return ResponseEntity.ok(response);
-//    }
-//    // 장바구니 전체 체크 상태 변경
-//    @PutMapping("/change/check/all")
-//    public ResponseEntity<RespDto<String>> updateAllCheckStatus(@Valid @RequestBody CartAllCheckReqDto reqDto) {
-//        
-//        String statusMessage = (reqDto.getAllCheckStatus() == 1) ? "전체 선택" : "전체 해제";
-//        log.info("장바구니 전체 체크 상태 변경 요청 - userCode: {}, 상태: {}", 
-//                reqDto.getUserCode(), statusMessage);
-//        
-//        RespDto<String> response = cartService.updateAllCheckStatus(reqDto);
-//        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
-//        return ResponseEntity.status(status).body(response);
-//    }
+    /**
+     * 개별 장바구니 체크 상태 토글
+     */
+    @PutMapping("/change/check")
+    public ResponseEntity<RespDto<String>> changeCheckStatus(
+            @Valid @RequestBody CartChangeCheckReqDto reqDto) {
+        
+        log.info("=== 장바구니 체크 상태 변경 요청 ===");
+        log.info("cartId: {}", reqDto.getCartId());
+        
+        RespDto<String> response = cartService.changeCheckStatus(reqDto.getCartId());
+        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
+        
+        log.info("체크 상태 변경 결과 - code: {}", response.getCode());
+        
+        return ResponseEntity.status(status).body(response);
+    }
+
+    /**
+     * 전체 장바구니 체크 상태 변경
+     */
+    @PutMapping("/change/check/all")
+    public ResponseEntity<RespDto<String>> changeAllCheckStatus(
+            @Valid @RequestBody CartAllCheckReqDto reqDto) {
+        
+        log.info("=== 전체 장바구니 체크 상태 변경 요청 ===");
+        log.info("userCode: {}, allCheckStatus: {}", reqDto.getUserCode(), reqDto.getAllCheckStatus());
+        
+        RespDto<String> response = cartService.changeAllCheckStatus(reqDto);
+        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
+        
+        log.info("전체 체크 상태 변경 결과 - code: {}", response.getCode());
+        
+        return ResponseEntity.status(status).body(response);
+    }
 }

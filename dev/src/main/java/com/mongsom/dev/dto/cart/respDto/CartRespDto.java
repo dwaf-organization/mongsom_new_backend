@@ -28,10 +28,11 @@ public class CartRespDto {
         private String productName;
         private Integer basePrice;
         private Integer discountPrice;
-        private Integer combinationId;
+        private Integer option1; // 첫 번째 옵션 추가
+        private Integer option2; // 두 번째 옵션 추가
         private List<OptionInfo> selectedOptions; // 선택된 옵션 정보
         private Integer optionPrice; // 옵션 추가 가격
-        private Integer unitPrice; // 개당 최종 가격 (basePrice + optionPrice)
+        private Integer unitPrice; // 개당 최종 가격 (discountPrice + optionPrice)
         private Integer quantity;
         private Integer totalPrice; // 라인 총 가격 (unitPrice * quantity)
         private Integer checkStatus;
@@ -43,8 +44,16 @@ public class CartRespDto {
             return checkStatus == 1;
         }
         
-        public boolean hasOptions() {
-            return combinationId != null && selectedOptions != null && !selectedOptions.isEmpty();
+        public boolean hasOption1() {
+            return option1 != null;
+        }
+        
+        public boolean hasOption2() {
+            return option2 != null;
+        }
+        
+        public boolean hasAnyOptions() {
+            return hasOption1() || hasOption2();
         }
     }
     

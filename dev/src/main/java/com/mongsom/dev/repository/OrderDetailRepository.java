@@ -1,6 +1,9 @@
 package com.mongsom.dev.repository;
 
 import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -14,10 +17,6 @@ public interface OrderDetailRepository extends JpaRepository<OrderDetail, Intege
     // 특정 주문의 상세 목록 조회
     @Query("SELECT od FROM OrderDetail od WHERE od.orderId = :orderId ORDER BY od.createdAt")
     List<OrderDetail> findByOrderIdOrderByCreatedAt(@Param("orderId") Integer orderId);
-    
-    // 특정 사용자의 모든 주문 상세 조회
-    @Query("SELECT od FROM OrderDetail od WHERE od.userCode = :userCode ORDER BY od.createdAt DESC")
-    List<OrderDetail> findByUserCodeOrderByCreatedAtDesc(@Param("userCode") Long userCode);
     
     // 리뷰 작성 가능한 주문 상세 조회 (배송완료 + 리뷰 미작성) - 네이티브 쿼리로 변경
     @Query(value = "SELECT od.* FROM order_detail od " +
@@ -115,5 +114,68 @@ List<Object[]> findOrderDetailItemsByOrderId(@Param("orderId") Integer orderId);
     // 상품별 총 주문 수량 조회
     @Query("SELECT COALESCE(SUM(od.quantity), 0) FROM OrderDetail od WHERE od.productId = :productId AND od.orderStatus = 0")
     Long getTotalQuantityByProductId(@Param("productId") Integer productId);
+    
+    /**
+     * 작성 가능한 리뷰 조회 (review_status = 0, 배송완료)
+     */
+    @Query("SELECT od FROM OrderDetail od " +
+           "JOIN od.orderItem oi " +
+           "WHERE oi.userCode = :userCode " +
+           "AND od.reviewStatus = 0 " +
+           "AND oi.deliveryStatus = '배송완료' " +
+           "ORDER BY oi.paymentAt DESC")
+    Page<OrderDetail> findReviewableOrderDetails(@Param("userCode") Long userCode, Pageable pageable);
+    
+    /**
+     * 작성된 리뷰 조회 (review_status = 1, 관리자 임의숨김 제외)
+     */
+    @Query("SELECT od FROM OrderDetail od " +
+           "JOIN od.orderItem oi " +
+           "LEFT JOIN UserReview ur ON ur.orderDetailId = od.orderDetailId " +
+           "WHERE oi.userCode = :userCode " +
+           "AND od.reviewStatus = 1 " +
+           "AND (ur.adminHidden IS NULL OR ur.adminHidden = 0) " +
+           "ORDER BY oi.paymentAt DESC")
+    Page<OrderDetail> findWrittenReviews(@Param("userCode") Long userCode, Pageable pageable);
+    
+    /**
+     * 작성된 리뷰 조회 - 임의숨김 조건 제외 버전 (필요시)
+     */
+    @Query("SELECT od FROM OrderDetail od " +
+           "JOIN od.orderItem oi " +
+           "WHERE oi.userCode = :userCode " +
+           "AND od.reviewStatus = 1 " +
+           "ORDER BY oi.paymentAt DESC")
+    Page<OrderDetail> findWrittenReviewsAll(@Param("userCode") Long userCode, Pageable pageable);
+    
+    /**
+     * 특정 사용자의 전체 주문 상세 조회
+     */
+    @Query("SELECT od FROM OrderDetail od " +
+           "JOIN od.orderItem oi " +
+           "WHERE oi.userCode = :userCode " +
+           "ORDER BY oi.createdAt DESC")
+    Page<OrderDetail> findByUserCode(@Param("userCode") Long userCode, Pageable pageable);
+    
+    /**
+     * 특정 상품의 리뷰 작성된 주문 상세 조회
+     */
+    @Query("SELECT od FROM OrderDetail od " +
+           "JOIN od.orderItem oi " +
+           "WHERE od.productId = :productId " +
+           "AND od.reviewStatus = 1 " +
+           "ORDER BY oi.paymentAt DESC")
+    Page<OrderDetail> findReviewedOrderDetailsByProduct(@Param("productId") Integer productId, Pageable pageable);
+    
+    /**
+     * 리뷰 통계용: 사용자별 리뷰 작성률 조회
+     */
+    @Query("SELECT " +
+           "COUNT(CASE WHEN od.reviewStatus = 1 THEN 1 END) as writtenCount, " +
+           "COUNT(CASE WHEN od.reviewStatus = 0 AND oi.deliveryStatus = '배송완료' THEN 1 END) as writableCount " +
+           "FROM OrderDetail od " +
+           "JOIN od.orderItem oi " +
+           "WHERE oi.userCode = :userCode")
+    Object[] findReviewStatsByUser(@Param("userCode") Long userCode);
     
 }

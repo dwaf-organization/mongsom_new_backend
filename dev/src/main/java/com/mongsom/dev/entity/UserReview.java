@@ -1,31 +1,24 @@
 package com.mongsom.dev.entity;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "user_review")
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class UserReview {
     
     @Id
@@ -42,15 +35,19 @@ public class UserReview {
     @Column(name = "product_id", nullable = false)
     private Integer productId;
     
-    // ⭐ 추가된 컬럼
     @Column(name = "order_id", nullable = false)
     private Integer orderId;
     
     @Column(name = "review_rating")
-    private Integer reviewRating;
+    private Integer reviewRating; // NULL 허용
     
-    @Column(name = "review_content", length = 255)
-    private String reviewContent;
+    @Lob
+    @Column(name = "review_content", columnDefinition = "TEXT")
+    private String reviewContent; // NULL 허용
+    
+    @Column(name = "admin_hidden", nullable = false)
+    @Builder.Default
+    private Integer adminHidden = 0; // 0=정상, 1=관리자 임의숨김
     
     @CreationTimestamp
     @Column(name = "created_at")
@@ -66,20 +63,88 @@ public class UserReview {
     private User user;
     
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_detail_id", insertable = false, updatable = false)
+    private OrderDetail orderDetail;
+    
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", insertable = false, updatable = false)
     private Product product;
     
-    // Builder 패턴을 위한 생성자
-    @Builder
-    public UserReview(Long userCode, Integer orderDetailId, Integer productId, Integer orderId,
-                     Integer reviewRating, String reviewContent, LocalDateTime createdAt, LocalDateTime updatedAt) {
-        this.userCode = userCode;
-        this.orderDetailId = orderDetailId;
-        this.productId = productId;
-        this.orderId = orderId;
-        this.reviewRating = reviewRating;
-        this.reviewContent = reviewContent;
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
+    // 리뷰 이미지가 있다면 (별도 테이블)
+    @OneToMany(mappedBy = "reviewId", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<ReviewImg> reviewImages;
+    
+    // 비즈니스 메서드
+    
+    /**
+     * 숨김 처리 (관리자)
+     */
+    public void hideByAdmin() {
+        this.adminHidden = 1;
+    }
+    
+    /**
+     * 숨김 해제 (관리자)
+     */
+    public void showByAdmin() {
+        this.adminHidden = 0;
+    }
+    
+    /**
+     * 숨김 상태인지 확인
+     */
+    public boolean isHidden() {
+        return adminHidden == 1;
+    }
+    
+    /**
+     * 정상 상태인지 확인
+     */
+    public boolean isVisible() {
+        return adminHidden == 0;
+    }
+    
+    /**
+     * 숨김 상태 토글
+     */
+    public void toggleHiddenStatus() {
+        this.adminHidden = this.adminHidden == 1 ? 0 : 1;
+    }
+    
+    /**
+     * 리뷰 평점이 유효한지 확인
+     */
+    public boolean isValidRating() {
+        return reviewRating != null && reviewRating >= 1 && reviewRating <= 5;
+    }
+    
+    /**
+     * 리뷰 내용이 있는지 확인
+     */
+    public boolean hasContent() {
+        return reviewContent != null && !reviewContent.trim().isEmpty();
+    }
+    
+    /**
+     * 리뷰 상태 요약
+     */
+    public String getStatusSummary() {
+        return isHidden() ? "관리자 숨김" : "정상";
+    }
+    
+    /**
+     * 정적 팩토리 메서드 - 리뷰 생성
+     */
+    public static UserReview createReview(Long userCode, Integer orderDetailId, Integer productId, 
+                                         Integer orderId, Integer rating, String content) {
+        return UserReview.builder()
+                .userCode(userCode)
+                .orderDetailId(orderDetailId)
+                .productId(productId)
+                .orderId(orderId)
+                .reviewRating(rating)
+                .reviewContent(content)
+                .adminHidden(0)
+                .build();
     }
 }

@@ -70,4 +70,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     	       "ORDER BY u.userCode DESC")
 	Page<User> findActiveUsers(Pageable pageable);
     
+    Optional<User> findByUserCode(Long userCode);
 }
