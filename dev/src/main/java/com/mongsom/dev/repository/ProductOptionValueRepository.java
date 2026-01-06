@@ -89,4 +89,9 @@ public interface ProductOptionValueRepository extends JpaRepository<ProductOptio
     @Query("SELECT pov.valueName FROM ProductOptionValue pov WHERE pov.optionValueId = :optionValueId")
     Optional<String> findValueNameById(@Param("optionValueId") Integer optionValueId);
     
+    /**
+     * 옵션 값 ID로 전체 정보 조회 (선택적)
+     */
+    Optional<ProductOptionValue> findById(Integer optionValueId);
+    
 }

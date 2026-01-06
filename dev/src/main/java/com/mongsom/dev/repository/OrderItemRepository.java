@@ -176,4 +176,11 @@ Page<OrderItem> findAdminOrders(@Param("startDate") LocalDate startDate,
     @Query("DELETE FROM OrderItem oi WHERE oi.orderId = :orderId")
     void deleteByOrderId(@Param("orderId") Integer orderId);
     
+    /**
+     * 배송 상태별 주문 목록 조회 (결제일시 내림차순) - 엑셀 내보내기용
+     * 기존 findByDeliveryStatusOrderByCreatedAtDesc를 paymentAt 기준으로 변경
+     */
+    @Query("SELECT o FROM OrderItem o WHERE o.deliveryStatus = ?1 ORDER BY o.paymentAt DESC")
+    List<OrderItem> findByDeliveryStatusOrderByPaymentAtDesc(String deliveryStatus);
+    
 }
