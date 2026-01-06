@@ -364,13 +364,13 @@ public class MyController {
     }
     
     /**
-     * 주문내역 조회 (페이징)
+     * 사용자 주문내역 조회
      */
     @GetMapping("/order/{userCode}")
     public ResponseEntity<RespDto<MyOrderListRespDto>> getMyOrderList(
             @PathVariable("userCode") Long userCode,
-            @RequestParam(value = "page", defaultValue = "0") Integer page,
-            @RequestParam(value = "size", defaultValue = "10") Integer size) {
+            @RequestParam("page") Integer page,
+            @RequestParam("size") Integer size) {
         
         log.info("=== 주문내역 조회 요청 ===");
         log.info("userCode: {}, page: {}, size: {}", userCode, page, size);

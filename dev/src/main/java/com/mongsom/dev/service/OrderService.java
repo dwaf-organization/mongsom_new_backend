@@ -13,6 +13,7 @@ import com.mongsom.dev.dto.order.reqDto.OrderCreateReqDto;
 import com.mongsom.dev.dto.order.reqDto.PaymentUpdateReqDto;
 import com.mongsom.dev.dto.order.respDto.MileageRespDto;
 import com.mongsom.dev.dto.order.respDto.OrderCancelRespDto;
+import com.mongsom.dev.dto.order.respDto.OrderCreateRespDto;
 import com.mongsom.dev.entity.OrderDetail;
 import com.mongsom.dev.entity.OrderItem;
 import com.mongsom.dev.entity.Payments;
@@ -42,7 +43,7 @@ public class OrderService {
     
     // 주문생성
     @Transactional
-    public RespDto<String> createOrder(OrderCreateReqDto reqDto) {
+    public RespDto<OrderCreateRespDto> createOrder(OrderCreateReqDto reqDto) {
         try {
             log.info("주문 생성 시작 - userCode: {}, finalPrice: {}, 상품 수: {}", 
                     reqDto.getUserCode(), reqDto.getFinalPrice(), reqDto.getOrderDetails().size());
@@ -51,7 +52,7 @@ public class OrderService {
             Optional<User> userOpt = userRepository.findUserByUserCode(reqDto.getUserCode());
             if (userOpt.isEmpty()) {
                 log.warn("존재하지 않는 사용자 - userCode: {}", reqDto.getUserCode());
-                return RespDto.<String>builder()
+                return RespDto.<OrderCreateRespDto>builder()
                         .code(-1)
                         .data(null)
                         .build();
@@ -63,7 +64,7 @@ public class OrderService {
             if (reqDto.getUsedMileage() > 0 && !user.canUseMileage(reqDto.getUsedMileage())) {
                 log.warn("마일리지 부족 - userCode: {}, 보유: {}, 사용요청: {}", 
                         reqDto.getUserCode(), user.getMileage(), reqDto.getUsedMileage());
-                return RespDto.<String>builder()
+                return RespDto.<OrderCreateRespDto>builder()
                         .code(-1)
                         .data(null)
                         .build();
@@ -74,7 +75,7 @@ public class OrderService {
                 Optional<Product> productOpt = productRepository.findById(detail.getProductId());
                 if (productOpt.isEmpty()) {
                     log.warn("존재하지 않는 상품 - productId: {}", detail.getProductId());
-                    return RespDto.<String>builder()
+                    return RespDto.<OrderCreateRespDto>builder()
                             .code(-1)
                             .data(null)
                             .build();
@@ -84,7 +85,27 @@ public class OrderService {
             // 4. delivery_status_reason 설정
             String deliveryStatusReason = "CARD".equals(reqDto.getPaymentType()) ? "일반결제" : "무통장입금";
             
-            // 5. OrderItem 생성 및 저장
+            // 5. 무통장입금인 경우 마일리지 즉시 차감
+            if ("무통장입금".equals(deliveryStatusReason) && reqDto.getUsedMileage() > 0) {
+                log.info("=== 무통장입금 마일리지 즉시 차감 시작 ===");
+                
+                boolean mileageDeducted = deductMileageForBankTransfer(user, reqDto.getUsedMileage());
+                if (!mileageDeducted) {
+                    log.error("무통장입금 마일리지 차감 실패 - userCode: {}, usedMileage: {}", 
+                            reqDto.getUserCode(), reqDto.getUsedMileage());
+                    return RespDto.<OrderCreateRespDto>builder()
+                            .code(-1)
+                            .data(null)
+                            .build();
+                }
+                
+                log.info("무통장입금 마일리지 차감 완료 - userCode: {}, 차감: {}", 
+                        reqDto.getUserCode(), reqDto.getUsedMileage());
+            } else {
+                log.info("일반결제(카드) - 마일리지는 결제 승인 후 차감 예정");
+            }
+            
+            // 6. OrderItem 생성 및 저장
             OrderItem orderItem = OrderItem.builder()
                     .userCode(reqDto.getUserCode())
                     .receivedUserName(reqDto.getReceivedUserName())
@@ -107,7 +128,7 @@ public class OrderService {
             OrderItem savedOrderItem = orderItemRepository.save(orderItem);
             Integer orderId = savedOrderItem.getOrderId();
             
-            // 5-1. orderNum 생성 및 업데이트 (mongsom_orderId 형식)
+            // 6-1. orderNum 생성 및 업데이트 (mongsom_orderId 형식)
             String orderNum = "mongsom_" + orderId;
             savedOrderItem.setOrderNum(orderNum);
             orderItemRepository.save(savedOrderItem);
@@ -150,21 +171,65 @@ public class OrderService {
             log.info("주문 생성 완료 - orderId: {}, userCode: {}, finalPrice: {}", 
                     orderId, reqDto.getUserCode(), reqDto.getFinalPrice());
             
-            return RespDto.<String>builder()
+            OrderCreateRespDto responseData = OrderCreateRespDto.builder()
+                    .orderNum(orderNum)
+                    .finalPrice(reqDto.getFinalPrice())
+                    .orderId(orderId)                    // 추가 정보
+//                    .totalPrice(reqDto.getTotalPrice())   // 추가 정보
+//                    .deliveryPrice(reqDto.getDeliveryPrice()) // 추가 정보
+//                    .usedMileage(reqDto.getUsedMileage()) // 추가 정보
+//                    .deliveryStatus("결제대기")           // 추가 정보
+                    .build();
+            
+            return RespDto.<OrderCreateRespDto>builder()
                     .code(1)
-                    .data(orderNum)
+                    .data(responseData)
                     .build();
             
         } catch (Exception e) {
             log.error("주문 생성 실패 - userCode: {}, finalPrice: {}", 
                     reqDto.getUserCode(), reqDto.getFinalPrice(), e);
-            return RespDto.<String>builder()
+            return RespDto.<OrderCreateRespDto>builder()
                     .code(-1)
                     .data(null)
                     .build();
         }
     }
    
+    /**
+     * 무통장입금용 마일리지 차감
+     */
+    private boolean deductMileageForBankTransfer(User user, Integer usedMileage) {
+        try {
+            log.info("무통장입금 마일리지 차감 - userCode: {}, 차감금액: {}", 
+                    user.getUserCode(), usedMileage);
+            
+            Integer currentMileage = user.getMileage();
+            
+            // User 엔티티의 비즈니스 메서드로 마일리지 차감
+            boolean deductSuccess = user.deductMileage(usedMileage);
+            
+            if (!deductSuccess) {
+                log.error("마일리지 차감 실패 - userCode: {}, 보유: {}, 사용요청: {}", 
+                        user.getUserCode(), currentMileage, usedMileage);
+                return false;
+            }
+            
+            // 변경된 사용자 정보 저장
+            userRepository.save(user);
+            
+            Integer newMileage = user.getMileage();
+            log.info("무통장입금 마일리지 차감 완료 - userCode: {}, 기존: {} → 변경: {} (차감: {})", 
+                    user.getUserCode(), currentMileage, newMileage, usedMileage);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("무통장입금 마일리지 차감 중 오류 발생", e);
+            return false;
+        }
+    }
+    
     // 주문취소
     @Transactional
     public RespDto<Boolean> cancelOrder(OrderCancelReqDto reqDto) {
@@ -414,7 +479,7 @@ public class OrderService {
     }
     
     /**
-     * 주문 취소 (결제대기 상태만 취소 가능)
+     * 주문 취소 (무통장입금 시 마일리지 환불 포함)
      */
     @Transactional
     public RespDto<OrderCancelRespDto> cancelOrder(Integer orderId) {
@@ -443,10 +508,31 @@ public class OrderService {
                         .build();
             }
             
-            // 3. 취소 처리 (데이터 삭제)
+            // 🔥 3. 무통장입금인 경우 마일리지 환불 처리
+            boolean mileageRefunded = false;
+            if ("무통장입금".equals(orderItem.getDeliveryStatusReason()) && orderItem.getUsedMileage() > 0) {
+                log.info("=== 무통장입금 주문취소 - 마일리지 환불 시작 ===");
+                
+                mileageRefunded = refundMileageForCancelledOrder(orderItem.getUserCode(), orderItem.getUsedMileage());
+                if (!mileageRefunded) {
+                    log.error("마일리지 환불 실패 - orderId: {}, userCode: {}, usedMileage: {}", 
+                            orderId, orderItem.getUserCode(), orderItem.getUsedMileage());
+                    return RespDto.<OrderCancelRespDto>builder()
+                            .code(-1)
+                            .data(null)
+                            .build();
+                }
+                
+                log.info("무통장입금 마일리지 환불 완료 - orderId: {}, 환불: {}", 
+                        orderId, orderItem.getUsedMileage());
+            } else {
+                log.info("일반결제 또는 마일리지 미사용 - 마일리지 환불 불필요");
+            }
+            
+            // 4. 취소 처리 (데이터 삭제) - 기존 로직
             OrderCancelRespDto cancelResult = performOrderCancellation(orderItem);
             
-            log.info("주문취소 완료 - orderId: {}", orderId);
+            log.info("주문취소 완료 - orderId: {}, mileageRefunded: {}", orderId, mileageRefunded);
             
             return RespDto.<OrderCancelRespDto>builder()
                     .code(1)
@@ -459,6 +545,40 @@ public class OrderService {
                     .code(-1)
                     .data(null)
                     .build();
+        }
+    }
+    
+    /**
+     * 주문 취소 시 마일리지 환불
+     */
+    private boolean refundMileageForCancelledOrder(Long userCode, Integer refundMileage) {
+        try {
+            log.info("주문취소 마일리지 환불 시작 - userCode: {}, 환불금액: {}", userCode, refundMileage);
+            
+            // 1. 사용자 조회
+            Optional<User> userOpt = userRepository.findUserByUserCode(userCode);
+            if (userOpt.isEmpty()) {
+                log.error("사용자를 찾을 수 없음 - userCode: {}", userCode);
+                return false;
+            }
+            
+            User user = userOpt.get();
+            Integer currentMileage = user.getMileage();
+            
+            // 2. 마일리지 환불 (적립)
+            user.addMileage(refundMileage);  // User 엔티티의 addMileage 메서드 사용
+            userRepository.save(user);
+            
+            Integer newMileage = user.getMileage();
+            log.info("주문취소 마일리지 환불 완료 - userCode: {}, 기존: {} → 변경: {} (환불: {})", 
+                    userCode, currentMileage, newMileage, refundMileage);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("주문취소 마일리지 환불 중 오류 발생 - userCode: {}, refundMileage: {}", 
+                    userCode, refundMileage, e);
+            return false;
         }
     }
     

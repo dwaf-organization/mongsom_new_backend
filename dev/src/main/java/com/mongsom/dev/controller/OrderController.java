@@ -17,6 +17,7 @@ import com.mongsom.dev.dto.order.reqDto.OrderCreateReqDto;
 import com.mongsom.dev.dto.order.reqDto.PaymentUpdateReqDto;
 import com.mongsom.dev.dto.order.respDto.MileageRespDto;
 import com.mongsom.dev.dto.order.respDto.OrderCancelRespDto;
+import com.mongsom.dev.dto.order.respDto.OrderCreateRespDto;
 import com.mongsom.dev.service.OrderService;
 
 import jakarta.validation.Valid;
@@ -32,13 +33,13 @@ public class OrderController {
     private final OrderService orderService;
     
     @PostMapping("/create")
-    public ResponseEntity<RespDto<String>> createOrder(@Valid @RequestBody OrderCreateReqDto reqDto) {
+    public ResponseEntity<RespDto<OrderCreateRespDto>> createOrder(@Valid @RequestBody OrderCreateReqDto reqDto) {
         
         log.info("주문 생성 요청 - userCode: {}, finalPrice: {}, 상품 수: {}", 
                 reqDto.getUserCode(), reqDto.getFinalPrice(),
                 reqDto.getOrderDetails().size());
         
-        RespDto<String> response = orderService.createOrder(reqDto);
+        RespDto<OrderCreateRespDto> response = orderService.createOrder(reqDto);
         HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
         
         return ResponseEntity.status(status).body(response);

@@ -12,7 +12,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "user_mst")
-@Getter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -137,11 +137,58 @@ public class User {
         }
     }
     
-    public void addMileage(Integer amount) {
-        this.mileage += amount;
+    /**
+     * 마일리지 설정 (직접 설정)
+     */
+    public void updateMileage(Integer mileage) {
+        this.mileage = mileage != null ? mileage : 0;
     }
     
-    public boolean canUseMileage(Integer amount) {
-        return this.mileage >= amount;
+    /**
+     * 마일리지 추가 (적립)
+     */
+    public void addMileage(Integer amount) {
+        if (amount != null && amount > 0) {
+            this.mileage = (this.mileage != null ? this.mileage : 0) + amount;
+        }
     }
+    
+    /**
+     * 마일리지 차감 (사용)
+     */
+    public boolean deductMileage(Integer amount) {
+        if (amount == null || amount <= 0) {
+            return false;  // 잘못된 차감 금액
+        }
+        
+        Integer currentMileage = this.mileage != null ? this.mileage : 0;
+        
+        if (currentMileage < amount) {
+            return false;  // 마일리지 부족
+        }
+        
+        this.mileage = currentMileage - amount;
+        return true;
+    }
+    
+    /**
+     * 마일리지 사용 가능 여부 확인
+     */
+    public boolean canUseMileage(Integer amount) {
+        if (amount == null || amount <= 0) {
+            return true;  // 0원 사용은 항상 가능
+        }
+        
+        Integer currentMileage = this.mileage != null ? this.mileage : 0;
+        return currentMileage >= amount;
+    }
+    
+    /**
+     * 현재 마일리지 조회 (null 안전)
+     */
+    public Integer getMileage() {
+        return this.mileage != null ? this.mileage : 0;
+    }
+    
+    
 }

@@ -212,5 +212,4 @@ List<Object[]> findOrderDetailItemsByOrderId(@Param("orderId") Integer orderId);
     @Query("SELECT COUNT(od) FROM OrderDetail od WHERE od.orderId = :orderId")
     Long countByOrderId(@Param("orderId") Integer orderId);
     
-    
 }

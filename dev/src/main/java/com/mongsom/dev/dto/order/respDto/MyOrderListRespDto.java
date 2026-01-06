@@ -25,6 +25,19 @@ public class MyOrderListRespDto {
         private String orderNum;           // 주문 번호
         private LocalDateTime paymentAt;   // 결제일시
         
+        private ProductInfoDto productInfo;
+
+        // 주문 정보
+        private Integer finalPrice;        // 최종 결제금액
+        private Integer deliveryPrice;     // 배송비
+        private String deliveryStatus;     // 배송상태
+    }
+    
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProductInfoDto {
         // 대표 상품 정보 (첫 번째 상품)
         private Integer productId;         // 상품 ID
         private String productName;        // 상품명 (외 N개 포함)
@@ -33,11 +46,8 @@ public class MyOrderListRespDto {
         private String option1Name;       // 옵션1 이름
         private String option2Name;       // 옵션2 이름
         private Integer quantity;          // 수량 (첫 번째 상품)
-        
-        // 주문 정보
-        private Integer finalPrice;        // 최종 결제금액
-        private Integer deliveryPrice;     // 배송비
-        private String deliveryStatus;     // 배송상태
+        private String productImgUrl;           // 상품 대표 이미지 (추가됨)
+        private String optionSummary;           // 옵션 요약
     }
     
     @Data

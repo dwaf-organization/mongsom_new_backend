@@ -997,7 +997,7 @@ public class MyService {
     }
     
     /**
-     * 주문내역 조회 (페이징)
+     * 사용자 주문내역 조회 (MyOrderListRespDto 기반)
      */
     @Transactional
     public RespDto<MyOrderListRespDto> getMyOrderList(Long userCode, Pageable pageable) {
@@ -1005,26 +1005,16 @@ public class MyService {
             log.info("주문내역 조회 시작 - userCode: {}, page: {}, size: {}", 
                     userCode, pageable.getPageNumber(), pageable.getPageSize());
             
-            // 사용자 존재 확인
-            if (!userRepository.existsByUserCode(userCode)) {
-                log.warn("존재하지 않는 사용자 - userCode: {}", userCode);
-                return RespDto.<MyOrderListRespDto>builder()
-                        .code(-1)
-                        .data(null)
-                        .build();
-            }
+            // 1. 사용자의 주문 목록 조회 (결제일시 내림차순)
+            Page<OrderItem> orderItemPage = orderItemRepository.findByUserCodeOrderByPaymentAtDesc(userCode, pageable);
             
-            // 주문 내역 조회 (최신순)
-            Page<OrderItem> orderItemPage = orderItemRepository
-                    .findByUserCodeOrderByPaymentAtDesc(userCode, pageable);
-            
-            // DTO 변환
-            List<MyOrderListRespDto.MyOrderItemDto> orders = orderItemPage.getContent()
+            // 2. DTO 변환
+            List<MyOrderListRespDto.MyOrderItemDto> orderList = orderItemPage.getContent()
                     .stream()
                     .map(this::convertToMyOrderItemDto)
                     .collect(Collectors.toList());
             
-            // 페이지 정보 생성
+            // 3. 페이징 정보 생성
             MyOrderListRespDto.PaginationDto pagination = MyOrderListRespDto.PaginationDto.builder()
                     .currentPage(orderItemPage.getNumber())
                     .totalPage(orderItemPage.getTotalPages())
@@ -1034,14 +1024,13 @@ public class MyService {
                     .hasPrevious(orderItemPage.hasPrevious())
                     .build();
             
-            // 응답 데이터 생성
+            // 4. 응답 데이터 생성
             MyOrderListRespDto responseData = MyOrderListRespDto.builder()
-                    .orders(orders)
+                    .orders(orderList)
                     .pagination(pagination)
                     .build();
             
-            log.info("주문내역 조회 완료 - userCode: {}, 총 {}건", 
-                    userCode, orderItemPage.getTotalElements());
+            log.info("주문내역 조회 완료 - userCode: {}, 총 {}건", userCode, orderItemPage.getTotalElements());
             
             return RespDto.<MyOrderListRespDto>builder()
                     .code(1)
@@ -1110,62 +1099,121 @@ public class MyService {
     }
     
     /**
-     * OrderItem을 MyOrderItemDto로 변환 (주문내역용)
+     * OrderItem을 MyOrderItemDto로 변환
      */
     private MyOrderListRespDto.MyOrderItemDto convertToMyOrderItemDto(OrderItem orderItem) {
-        // 첫 번째 상품 조회
-        List<OrderDetail> orderDetails = orderDetailRepository
-                .findByOrderIdOrderByOrderDetailIdAsc(orderItem.getOrderId());
+        // 1. 해당 주문의 OrderDetail 목록 조회
+        List<OrderDetail> orderDetails = orderDetailRepository.findByOrderId(orderItem.getOrderId());
         
         if (orderDetails.isEmpty()) {
-            log.warn("주문 상품이 없음 - orderId: {}", orderItem.getOrderId());
-            // 빈 DTO 반환
-            return MyOrderListRespDto.MyOrderItemDto.builder()
-                    .orderId(orderItem.getOrderId())
-                    .orderNum(orderItem.getOrderNum())
-                    .paymentAt(orderItem.getPaymentAt())
-                    .finalPrice(orderItem.getFinalPrice())
-                    .deliveryPrice(orderItem.getDeliveryPrice())
-                    .deliveryStatus(orderItem.getDeliveryStatus())
-                    .build();
+            log.warn("주문 상세를 찾을 수 없음 - orderId: {}", orderItem.getOrderId());
+            return createEmptyMyOrderItemDto(orderItem);
         }
         
+        // 2. 첫 번째 OrderDetail을 대표 상품으로 사용
         OrderDetail firstOrderDetail = orderDetails.get(0);
-        Product firstProduct = firstOrderDetail.getProduct();
         
-        // 상품명 생성 (외 N개 포함)
-        String productName = firstProduct != null ? firstProduct.getName() : "알 수 없는 상품";
-        int totalProductCount = orderDetails.size();
-        if (totalProductCount > 1) {
-            productName += " 외 " + (totalProductCount - 1) + "개";
-        }
-        
-        // 옵션명 조회
-        String option1Name = null;
-        String option2Name = null;
-        
-        if (firstOrderDetail.hasOption1()) {
-            option1Name = getOptionValueName(firstOrderDetail.getOption1());
-        }
-        if (firstOrderDetail.hasOption2()) {
-            option2Name = getOptionValueName(firstOrderDetail.getOption2());
-        }
+        // 3. 상품 정보 구성
+        MyOrderListRespDto.ProductInfoDto productInfo = buildMyProductInfo(firstOrderDetail, orderDetails.size());
         
         return MyOrderListRespDto.MyOrderItemDto.builder()
                 .orderId(orderItem.getOrderId())
                 .orderNum(orderItem.getOrderNum())
                 .paymentAt(orderItem.getPaymentAt())
-                
-                // 첫 번째 상품 정보
-                .productId(firstOrderDetail.getProductId())
+                .productInfo(productInfo)
+                .finalPrice(orderItem.getFinalPrice())
+                .deliveryPrice(orderItem.getDeliveryPrice())
+                .deliveryStatus(orderItem.getDeliveryStatus())
+                .build();
+    }
+    /**
+     * 상품 정보 구성 (MyOrderListRespDto 기준)
+     */
+    private MyOrderListRespDto.ProductInfoDto buildMyProductInfo(OrderDetail orderDetail, int totalProductCount) {
+        Product product = orderDetail.getProduct();
+        
+        // 1. 상품 기본 정보
+        Integer productId = orderDetail.getProductId();
+        String productName = product != null ? product.getName() : "알 수 없는 상품";
+        
+        // 2. 상품명에 "외 N개" 추가 (다중 상품인 경우)
+        if (totalProductCount > 1) {
+            productName = productName + " 외 " + (totalProductCount - 1) + "개";
+        }
+        
+        // 3. 상품 대표 이미지 조회 (첫 번째 이미지)
+        String productImgUrl = null;
+        if (product != null && product.getProductImages() != null && !product.getProductImages().isEmpty()) {
+            productImgUrl = product.getProductImages().get(0).getProductImgUrl();
+            log.debug("상품 이미지 조회 성공 - productId: {}, imageUrl: {}", productId, productImgUrl);
+        } else {
+            log.debug("상품 이미지 없음 - productId: {}", productId);
+        }
+        
+        // 4. 옵션 정보 조회
+        Integer option1 = orderDetail.getOption1();
+        Integer option2 = orderDetail.getOption2();
+        String option1Name = null;
+        String option2Name = null;
+        
+        if (option1 != null) {
+            option1Name = getOptionValueName(option1);
+        }
+        if (option2 != null) {
+            option2Name = getOptionValueName(option2);
+        }
+        
+        // 5. 옵션 요약 생성 (500ml, 블랙)
+        String optionSummary = buildOptionSummary(option1Name, option2Name);
+        
+        return MyOrderListRespDto.ProductInfoDto.builder()
+                .productId(productId)
                 .productName(productName)
-                .option1(firstOrderDetail.getOption1())
-                .option2(firstOrderDetail.getOption2())
+                .option1(option1)
+                .option2(option2)
                 .option1Name(option1Name)
                 .option2Name(option2Name)
-                .quantity(firstOrderDetail.getQuantity())
-                
-                // 주문 정보
+                .quantity(orderDetail.getQuantity())
+                .productImgUrl(productImgUrl)
+                .optionSummary(optionSummary)
+                .build();
+    }
+    
+    /**
+     * 옵션 요약 생성 (500ml, 블랙)
+     */
+    private String buildOptionSummary(String option1Name, String option2Name) {
+        List<String> optionParts = new ArrayList<>();
+        
+        if (option1Name != null && !option1Name.isEmpty()) {
+            optionParts.add(option1Name);
+        }
+        if (option2Name != null && !option2Name.isEmpty()) {
+            optionParts.add(option2Name);
+        }
+        
+        return optionParts.isEmpty() ? null : String.join(", ", optionParts);
+    }
+    
+    /**
+     * 빈 MyOrderItemDto 생성 (오류 케이스용)
+     */
+    private MyOrderListRespDto.MyOrderItemDto createEmptyMyOrderItemDto(OrderItem orderItem) {
+        return MyOrderListRespDto.MyOrderItemDto.builder()
+                .orderId(orderItem.getOrderId())
+                .orderNum(orderItem.getOrderNum())
+                .paymentAt(orderItem.getPaymentAt())
+                .productInfo(MyOrderListRespDto.ProductInfoDto.builder()
+                        .productId(null)
+                        .productName("정보없음")
+                        .option1(null)
+                        .option2(null)
+                        .option1Name(null)
+                        .option2Name(null)
+                        .quantity(0)
+                        .productImgUrl(null)
+                        .optionSummary("정보없음")
+                        .build())
                 .finalPrice(orderItem.getFinalPrice())
                 .deliveryPrice(orderItem.getDeliveryPrice())
                 .deliveryStatus(orderItem.getDeliveryStatus())

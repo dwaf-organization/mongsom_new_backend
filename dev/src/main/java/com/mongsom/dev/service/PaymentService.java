@@ -12,9 +12,11 @@ import com.mongsom.dev.common.dto.RespDto;
 import com.mongsom.dev.dto.payment.reqDto.PaymentConfirmReqDto;
 import com.mongsom.dev.entity.OrderItem;
 import com.mongsom.dev.entity.Payments;
+import com.mongsom.dev.entity.User;
 import com.mongsom.dev.repository.CartRepository;
 import com.mongsom.dev.repository.OrderItemRepository;
 import com.mongsom.dev.repository.PaymentsRepository;
+import com.mongsom.dev.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,7 @@ public class PaymentService {
     private final OrderItemRepository orderItemRepository;
     private final PaymentsRepository paymentsRepository;
     private final CartRepository cartRepository;
+    private final UserRepository userRepository;
     
     @Value("${toss.secret-key}")
     private String tossSecretKey;
@@ -72,14 +75,14 @@ public class PaymentService {
     }
     
     /**
-     * 토스페이먼츠 결제 승인
+     * 토스페이먼츠 결제 승인 (마일리지 차감 포함)
      */
     @Transactional
     public RespDto<String> confirmPayment(PaymentConfirmReqDto reqDto) {
         try {
             log.info("=== 토스페이먼츠 결제 승인 요청 시작 ===");
-            log.info("paymentKey: {}, orderId: {}, amount: {}",
-                    reqDto.getPaymentKey(), reqDto.getOrderId(), reqDto.getAmount());
+            log.info("paymentKey: {}, orderId: {}, amount: {}, userCode: {}",
+                    reqDto.getPaymentKey(), reqDto.getOrderId(), reqDto.getAmount(), reqDto.getUserCode());
 
             // 1. 토스페이먼츠 API 엔드포인트
             String url = "https://api.tosspayments.com/v1/payments/confirm";
@@ -137,17 +140,38 @@ public class PaymentService {
                 
                 OrderItem orderItem = orderItemOpt.get();
                 Integer orderId = orderItem.getOrderId();
+                Long userCode = orderItem.getUserCode();
+                Integer usedMileage = orderItem.getUsedMileage();
                 
-                log.info("주문 조회 성공 - orderId: {}, orderNum: {}", orderId, orderNum);
+                log.info("주문 조회 성공 - orderId: {}, userCode: {}, usedMileage: {}", 
+                        orderId, userCode, usedMileage);
                 
-                // 8-2. OrderItem 업데이트
+                // 8-2. 마일리지 차감 처리 (결제 승인과 동시에)
+                if (usedMileage > 0) {
+                    log.info("=== 마일리지 차감 처리 시작 ===");
+                    boolean mileageDeducted = deductUserMileage(userCode, usedMileage);
+                    
+                    if (!mileageDeducted) {
+                        log.error("마일리지 차감 실패 - userCode: {}, usedMileage: {}", userCode, usedMileage);
+                        return RespDto.<String>builder()
+                                .code(-1)
+                                .data("마일리지 차감에 실패했습니다.")
+                                .build();
+                    }
+                    
+                    log.info("마일리지 차감 완료 - userCode: {}, 차감금액: {}", userCode, usedMileage);
+                } else {
+                    log.info("사용한 마일리지 없음 - usedMileage: {}", usedMileage);
+                }
+                
+                // 8-3. OrderItem 업데이트
                 orderItem.setDeliveryStatus("결제완료");
                 orderItem.setPaymentAt(LocalDateTime.now());
                 orderItemRepository.save(orderItem);
                 
                 log.info("OrderItem 업데이트 완료 - orderId: {}, deliveryStatus: 결제완료", orderId);
                 
-                // 8-3. Payments 조회
+                // 8-4. Payments 조회
                 List<Payments> paymentList = paymentsRepository.findByOrderId(orderId);
                 
                 if (paymentList == null || paymentList.isEmpty()) {
@@ -158,7 +182,7 @@ public class PaymentService {
                             .build();
                 }
                 
-                // 8-4. Payments 업데이트 (리스트의 모든 결제 정보 업데이트)
+                // 8-5. Payments 업데이트 (카드사명 매핑 포함)
                 for (Payments payment : paymentList) {
                     // 카드사 정보 추출
                     String paymentMethodInfo = extractPaymentMethodInfo(responseBody);
@@ -169,11 +193,11 @@ public class PaymentService {
                     payment.setPaymentKey(paymentKey);
                     paymentsRepository.save(payment);
                     
-                    log.info("Payments 업데이트 완료 - paymentId: {}, orderId: {}, method: {}, amount: {}, status: COMPLETED", 
+                    log.info("Payments 업데이트 완료 - paymentId: {}, orderId: {}, method: {}, amount: {}, status: 결제완료", 
                             payment.getPaymentId(), orderId, paymentMethodInfo, totalAmount);
                 }
                 
-                // 8-5. 결제 완료 시 장바구니 삭제
+                // 8-6. 결제 완료 시 장바구니 삭제
                 int deletedCartCount = cartRepository.deleteByUserCode(reqDto.getUserCode());
                 log.info("장바구니 삭제 완료 - userCode: {}, 삭제된 항목 수: {}", 
                         reqDto.getUserCode(), deletedCartCount);
@@ -210,6 +234,47 @@ public class PaymentService {
                     .code(-1)
                     .data("결제 승인 처리 중 오류 발생: " + e.getMessage())
                     .build();
+        }
+    }
+    
+    /**
+     * 사용자 마일리지 차감 처리
+     */
+    private boolean deductUserMileage(Long userCode, Integer usedMileage) {
+        try {
+            log.info("마일리지 차감 시작 - userCode: {}, 차감금액: {}", userCode, usedMileage);
+            
+            // 1. 사용자 조회
+            Optional<User> userOpt = userRepository.findUserByUserCode(userCode);
+            if (userOpt.isEmpty()) {
+                log.error("사용자를 찾을 수 없음 - userCode: {}", userCode);
+                return false;
+            }
+            
+            User user = userOpt.get();
+            Integer currentMileage = user.getMileage();
+            
+            log.info("현재 마일리지 - userCode: {}, 보유: {}, 사용: {}", userCode, currentMileage, usedMileage);
+            
+            // 2. 마일리지 부족 재확인
+            if (currentMileage < usedMileage) {
+                log.error("마일리지 부족 - userCode: {}, 보유: {}, 사용요청: {}", userCode, currentMileage, usedMileage);
+                return false;
+            }
+            
+            // 3. 마일리지 차감
+            Integer newMileage = currentMileage - usedMileage;
+            user.setMileage(newMileage);
+            userRepository.save(user);
+            
+            log.info("마일리지 차감 완료 - userCode: {}, 기존: {} → 변경: {} (차감: {})", 
+                    userCode, currentMileage, newMileage, usedMileage);
+            
+            return true;
+            
+        } catch (Exception e) {
+            log.error("마일리지 차감 중 오류 발생 - userCode: {}, usedMileage: {}", userCode, usedMileage, e);
+            return false;
         }
     }
     
@@ -285,18 +350,16 @@ public class PaymentService {
                             return cardCompanyName; // 예: "신한카드", "토스뱅크", "삼성카드"
                         } else {
                             log.warn("알 수 없는 카드사 코드: {}", issuerCode);
-                            // 알 수 없는 코드인 경우 기본값 + 코드 표시
                             return "카드(" + issuerCode + ")";
                         }
                     }
                 }
                 
-                // issuerCode가 없거나 카드 정보가 없는 경우
                 log.warn("카드 발급사 코드를 찾을 수 없음");
                 return "카드";
                 
             } else if ("간편결제".equals(method)) {
-                // 간편결제인 경우 제공업체 정보 추출 (기존 로직 유지)
+                // 간편결제인 경우 제공업체 정보 추출
                 Map<String, Object> easyPayInfo = (Map<String, Object>) responseBody.get("easyPay");
                 if (easyPayInfo != null) {
                     String provider = (String) easyPayInfo.get("provider");
@@ -315,7 +378,6 @@ public class PaymentService {
             
         } catch (Exception e) {
             log.error("결제수단 정보 추출 실패: {}", e.getMessage(), e);
-            // 오류 발생 시 원본 method 반환
             return (String) responseBody.get("method");
         }
     }
