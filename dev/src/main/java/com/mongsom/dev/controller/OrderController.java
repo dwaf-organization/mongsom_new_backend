@@ -2,6 +2,7 @@ package com.mongsom.dev.controller;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +16,7 @@ import com.mongsom.dev.dto.order.reqDto.OrderCancelReqDto;
 import com.mongsom.dev.dto.order.reqDto.OrderCreateReqDto;
 import com.mongsom.dev.dto.order.reqDto.PaymentUpdateReqDto;
 import com.mongsom.dev.dto.order.respDto.MileageRespDto;
+import com.mongsom.dev.dto.order.respDto.OrderCancelRespDto;
 import com.mongsom.dev.service.OrderService;
 
 import jakarta.validation.Valid;
@@ -87,6 +89,27 @@ public class OrderController {
         if (response.getData() != null) {
             log.info("보유 마일리지: {}", response.getData().getMileage());
         }
+        
+        return ResponseEntity.status(status).body(response);
+    }
+    
+    /**
+     * 주문 취소 (결제대기 상태만 가능)
+     */
+    @DeleteMapping("/cancel/{orderId}")
+    public ResponseEntity<RespDto<OrderCancelRespDto>> cancelOrder(
+            @PathVariable("orderId") Integer orderId) {
+        
+        log.info("=== 주문취소 요청 ===");
+        log.info("orderId: {}", orderId);
+        
+        RespDto<OrderCancelRespDto> response = orderService.cancelOrder(orderId);
+        
+        HttpStatus status = response.getCode() == 1 ? HttpStatus.OK :
+                           response.getCode() == -2 ? HttpStatus.BAD_REQUEST :
+                           HttpStatus.INTERNAL_SERVER_ERROR;
+        
+        log.info("주문취소 결과 - code: {}", response.getCode());
         
         return ResponseEntity.status(status).body(response);
     }

@@ -40,6 +40,37 @@ public class PaymentService {
     @Value("${toss.secret-key}")
     private String tossSecretKey;
     
+    // 토스페이먼츠 카드사 코드 매핑 테이블
+    private static final Map<String, String> CARD_ISSUER_MAP = new HashMap<>();
+    
+    static {
+        // 카드사 코드 → 한글명 매핑
+        CARD_ISSUER_MAP.put("3K", "기업BC");
+        CARD_ISSUER_MAP.put("46", "광주은행");
+        CARD_ISSUER_MAP.put("71", "롯데카드");
+        CARD_ISSUER_MAP.put("30", "산업은행");
+        CARD_ISSUER_MAP.put("31", "BC카드");
+        CARD_ISSUER_MAP.put("51", "삼성카드");
+        CARD_ISSUER_MAP.put("38", "새마을금고");
+        CARD_ISSUER_MAP.put("41", "신한카드");
+        CARD_ISSUER_MAP.put("62", "신협");
+        CARD_ISSUER_MAP.put("36", "씨티카드");
+        CARD_ISSUER_MAP.put("33", "우리BC카드");
+        CARD_ISSUER_MAP.put("W1", "우리카드");
+        CARD_ISSUER_MAP.put("37", "우체국예금보험");
+        CARD_ISSUER_MAP.put("39", "저축은행중앙회");
+        CARD_ISSUER_MAP.put("35", "전북은행");
+        CARD_ISSUER_MAP.put("42", "제주은행");
+        CARD_ISSUER_MAP.put("15", "카카오뱅크");
+        CARD_ISSUER_MAP.put("3A", "케이뱅크");
+        CARD_ISSUER_MAP.put("24", "토스뱅크");
+        CARD_ISSUER_MAP.put("21", "하나카드");
+        CARD_ISSUER_MAP.put("61", "현대카드");
+        CARD_ISSUER_MAP.put("11", "국민카드");
+        CARD_ISSUER_MAP.put("91", "농협카드");
+        CARD_ISSUER_MAP.put("34", "수협은행");
+    }
+    
     /**
      * 토스페이먼츠 결제 승인
      */
@@ -231,29 +262,46 @@ public class PaymentService {
     }
     
     /**
-     * 토스페이먼츠 응답에서 결제수단 정보 추출
+     * 토스페이먼츠 응답에서 결제수단 정보 추출 (카드사명 매핑 포함)
      */
     private String extractPaymentMethodInfo(Map<String, Object> responseBody) {
         try {
             String method = (String) responseBody.get("method");
+            log.info("결제 방법: {}", method);
             
             if ("카드".equals(method)) {
-                // 카드 결제인 경우 카드사 정보 추출
+                // 카드 결제인 경우 issuerCode를 통해 카드사명 추출
                 Map<String, Object> cardInfo = (Map<String, Object>) responseBody.get("card");
                 if (cardInfo != null) {
-                    String company = (String) cardInfo.get("company");
-                    if (company != null && !company.isEmpty()) {
-                        return company; // 예: "현대카드", "삼성카드"
+                    String issuerCode = (String) cardInfo.get("issuerCode");
+                    log.info("카드 발급사 코드: {}", issuerCode);
+                    
+                    if (issuerCode != null && !issuerCode.isEmpty()) {
+                        // issuerCode를 카드사명으로 매핑
+                        String cardCompanyName = CARD_ISSUER_MAP.get(issuerCode);
+                        
+                        if (cardCompanyName != null) {
+                            log.info("매핑된 카드사명: {}", cardCompanyName);
+                            return cardCompanyName; // 예: "신한카드", "토스뱅크", "삼성카드"
+                        } else {
+                            log.warn("알 수 없는 카드사 코드: {}", issuerCode);
+                            // 알 수 없는 코드인 경우 기본값 + 코드 표시
+                            return "카드(" + issuerCode + ")";
+                        }
                     }
                 }
+                
+                // issuerCode가 없거나 카드 정보가 없는 경우
+                log.warn("카드 발급사 코드를 찾을 수 없음");
                 return "카드";
                 
             } else if ("간편결제".equals(method)) {
-                // 간편결제인 경우 제공업체 정보 추출
+                // 간편결제인 경우 제공업체 정보 추출 (기존 로직 유지)
                 Map<String, Object> easyPayInfo = (Map<String, Object>) responseBody.get("easyPay");
                 if (easyPayInfo != null) {
                     String provider = (String) easyPayInfo.get("provider");
                     if (provider != null && !provider.isEmpty()) {
+                        log.info("간편결제 제공업체: {}", provider);
                         return provider; // 예: "토스페이", "카카오페이"
                     }
                 }
@@ -261,12 +309,33 @@ public class PaymentService {
                 
             } else {
                 // 가상계좌, 계좌이체 등 기타 결제수단
+                log.info("기타 결제수단: {}", method);
                 return method;
             }
             
         } catch (Exception e) {
-            log.warn("결제수단 정보 추출 실패: {}", e.getMessage());
+            log.error("결제수단 정보 추출 실패: {}", e.getMessage(), e);
+            // 오류 발생 시 원본 method 반환
             return (String) responseBody.get("method");
         }
+    }
+    
+    /**
+     * 카드사 코드 목록 조회 (디버깅/관리용)
+     */
+    public Map<String, String> getCardIssuerMap() {
+        return new HashMap<>(CARD_ISSUER_MAP);
+    }
+    
+    /**
+     * 특정 카드사 코드로 카드사명 조회 (유틸리티 메서드)
+     */
+    public String getCardCompanyName(String issuerCode) {
+        if (issuerCode == null || issuerCode.isEmpty()) {
+            return "알 수 없음";
+        }
+        
+        String cardCompanyName = CARD_ISSUER_MAP.get(issuerCode);
+        return cardCompanyName != null ? cardCompanyName : "카드(" + issuerCode + ")";
     }
 }

@@ -84,4 +84,12 @@ public interface ChangeItemRepository extends JpaRepository<ChangeItem, Integer>
     Optional<ChangeItem> findByUserCodeAndOrderDetailId(@Param("userCode") Long userCode, 
                                                        @Param("orderDetailId") Integer orderDetailId);
     
+    /**
+     * 관리자 교환/반품 목록 조회 (교환 또는 반품)
+     */
+    @Query("SELECT ci FROM ChangeItem ci " +
+           "WHERE ci.changeType = :changeType " +
+           "ORDER BY ci.requestedAt DESC")
+    Page<ChangeItem> findAdminChangeList(@Param("changeType") String changeType, Pageable pageable);
+    
 }

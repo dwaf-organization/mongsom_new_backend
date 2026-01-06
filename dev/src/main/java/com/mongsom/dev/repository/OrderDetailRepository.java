@@ -14,6 +14,13 @@ import com.mongsom.dev.entity.OrderDetail;
 @Repository
 public interface OrderDetailRepository extends JpaRepository<OrderDetail, Integer> {
     
+    /**
+     * 주문 ID로 OrderDetail 삭제
+     */
+    @Modifying
+    @Query("DELETE FROM OrderDetail od WHERE od.orderId = :orderId")
+    void deleteByOrderId(@Param("orderId") Integer orderId);
+    
     // 특정 주문의 상세 목록 조회
     @Query("SELECT od FROM OrderDetail od WHERE od.orderId = :orderId ORDER BY od.createdAt")
     List<OrderDetail> findByOrderIdOrderByCreatedAt(@Param("orderId") Integer orderId);

@@ -13,6 +13,12 @@ import com.mongsom.dev.entity.Payments;
 
 @Repository
 public interface PaymentsRepository extends JpaRepository<Payments, Integer> {
+    /**
+     * 주문 ID로 Payment 삭제
+     */
+    @Modifying
+    @Query("DELETE FROM Payments p WHERE p.orderId = :orderId")
+    void deleteByOrderId(@Param("orderId") Integer orderId);
     
     // 주문 ID와 사용자 코드로 결제 정보 조회
     Optional<Payments> findByOrderIdAndUserCode(Integer orderId, Long userCode);

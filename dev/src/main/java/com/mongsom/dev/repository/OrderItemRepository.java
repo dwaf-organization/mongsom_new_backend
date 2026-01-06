@@ -132,5 +132,48 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Integer> {
      */
     Page<OrderItem> findByUserCodeOrderByPaymentAtDesc(Long userCode, Pageable pageable);
     
+    /**
+     * 관리자 주문 조회 (검색 조건 포함)
+     */
+    @Query(value = "SELECT DISTINCT oi.* FROM order_item oi " +
+            "LEFT JOIN user_mst u ON oi.user_code = u.user_code " +
+            "WHERE " +
+            "(:startDate IS NULL OR DATE(oi.payment_at) >= :startDate) " +
+            "AND (:endDate IS NULL OR DATE(oi.payment_at) <= :endDate) " +
+            "AND (" +
+            "    :searchKeyword IS NULL OR :searchKeyword = '' OR " +  // 이것도 추가하면 좋음
+            "    CAST(oi.order_num AS CHAR) LIKE CONCAT('%', :searchKeyword, '%') OR " +
+            "    CAST(oi.invoice_num AS CHAR) LIKE CONCAT('%', :searchKeyword, '%') OR " +
+            "    CAST(u.phone AS CHAR) LIKE CONCAT('%', :searchKeyword, '%') OR " +
+            "    CAST(u.name AS CHAR) LIKE CONCAT('%', :searchKeyword, '%')" +
+            ") " +
+            "AND (:orderStatus IS NULL OR :orderStatus = '' OR oi.delivery_status = :orderStatus) " +  // 여기 수정
+            "ORDER BY oi.payment_at DESC",
+    countQuery = "SELECT COUNT(DISTINCT oi.order_id) FROM order_item oi " +
+                "LEFT JOIN user_mst u ON oi.user_code = u.user_code " +
+                "WHERE " +
+                "(:startDate IS NULL OR DATE(oi.payment_at) >= :startDate) " +
+                "AND (:endDate IS NULL OR DATE(oi.payment_at) <= :endDate) " +
+                "AND (" +
+                "    :searchKeyword IS NULL OR :searchKeyword = '' OR " +  // 이것도 추가하면 좋음
+                "    CAST(oi.order_num AS CHAR) LIKE CONCAT('%', :searchKeyword, '%') OR " +
+                "    CAST(oi.invoice_num AS CHAR) LIKE CONCAT('%', :searchKeyword, '%') OR " +
+                "    CAST(u.phone AS CHAR) LIKE CONCAT('%', :searchKeyword, '%') OR " +
+                "    CAST(u.name AS CHAR) LIKE CONCAT('%', :searchKeyword, '%')" +
+                ") " +
+                "AND (:orderStatus IS NULL OR :orderStatus = '' OR oi.delivery_status = :orderStatus)",  // 여기도 수정
+    nativeQuery = true)
+Page<OrderItem> findAdminOrders(@Param("startDate") LocalDate startDate,
+                            @Param("endDate") LocalDate endDate,
+                            @Param("searchKeyword") String searchKeyword,
+                            @Param("orderStatus") String orderStatus,
+                            Pageable pageable);
+    
+    /**
+     * 주문 ID로 OrderItem 삭제
+     */
+    @Modifying
+    @Query("DELETE FROM OrderItem oi WHERE oi.orderId = :orderId")
+    void deleteByOrderId(@Param("orderId") Integer orderId);
     
 }

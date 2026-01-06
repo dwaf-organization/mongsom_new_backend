@@ -12,6 +12,7 @@ import com.mongsom.dev.dto.order.reqDto.OrderCancelReqDto;
 import com.mongsom.dev.dto.order.reqDto.OrderCreateReqDto;
 import com.mongsom.dev.dto.order.reqDto.PaymentUpdateReqDto;
 import com.mongsom.dev.dto.order.respDto.MileageRespDto;
+import com.mongsom.dev.dto.order.respDto.OrderCancelRespDto;
 import com.mongsom.dev.entity.OrderDetail;
 import com.mongsom.dev.entity.OrderItem;
 import com.mongsom.dev.entity.Payments;
@@ -410,6 +411,101 @@ public class OrderService {
                     .data(null)
                     .build();
         }
+    }
+    
+    /**
+     * 주문 취소 (결제대기 상태만 취소 가능)
+     */
+    @Transactional
+    public RespDto<OrderCancelRespDto> cancelOrder(Integer orderId) {
+        try {
+            log.info("주문취소 시작 - orderId: {}", orderId);
+            
+            // 1. OrderItem 조회 및 취소 가능 여부 확인
+            Optional<OrderItem> orderItemOpt = orderItemRepository.findByOrderId(orderId);
+            if (orderItemOpt.isEmpty()) {
+                log.warn("존재하지 않는 주문 - orderId: {}", orderId);
+                return RespDto.<OrderCancelRespDto>builder()
+                        .code(-1)
+                        .data(null)
+                        .build();
+            }
+            
+            OrderItem orderItem = orderItemOpt.get();
+            
+            // 2. 취소 가능 상태 확인 (결제대기만 취소 가능)
+            if (!"결제대기".equals(orderItem.getDeliveryStatus())) {
+                log.warn("취소 불가능한 상태 - orderId: {}, deliveryStatus: {}", 
+                        orderId, orderItem.getDeliveryStatus());
+                return RespDto.<OrderCancelRespDto>builder()
+                        .code(-2)
+                        .data(null)
+                        .build();
+            }
+            
+            // 3. 취소 처리 (데이터 삭제)
+            OrderCancelRespDto cancelResult = performOrderCancellation(orderItem);
+            
+            log.info("주문취소 완료 - orderId: {}", orderId);
+            
+            return RespDto.<OrderCancelRespDto>builder()
+                    .code(1)
+                    .data(cancelResult)
+                    .build();
+            
+        } catch (Exception e) {
+            log.error("주문취소 실패 - orderId: {}", orderId, e);
+            return RespDto.<OrderCancelRespDto>builder()
+                    .code(-1)
+                    .data(null)
+                    .build();
+        }
+    }
+    
+    /**
+     * 주문 취소 실행 (데이터 삭제 처리)
+     */
+    private OrderCancelRespDto performOrderCancellation(OrderItem orderItem) {
+        Integer orderId = orderItem.getOrderId();
+        String orderNum = orderItem.getOrderNum();
+        String previousStatus = orderItem.getDeliveryStatus();
+        LocalDateTime canceledAt = LocalDateTime.now();
+        
+        // 1. OrderDetail 삭제 (주문 상품들)
+        List<OrderDetail> orderDetails = orderDetailRepository.findByOrderId(orderId);
+        int deletedOrderDetailsCount = orderDetails.size();
+        
+        log.info("OrderDetail 삭제 시작 - orderId: {}, 삭제 대상: {}건", orderId, deletedOrderDetailsCount);
+        orderDetailRepository.deleteByOrderId(orderId);
+        log.info("OrderDetail 삭제 완료 - orderId: {}", orderId);
+        
+        // 2. Payment 삭제 (있는 경우만)
+        boolean paymentDeleted = false;
+        Optional<Payments> paymentOpt = paymentsRepository.findByOrderId2(orderId);
+        if (paymentOpt.isPresent()) {
+            log.info("Payment 삭제 시작 - orderId: {}", orderId);
+            paymentsRepository.deleteByOrderId(orderId);
+            paymentDeleted = true;
+            log.info("Payment 삭제 완료 - orderId: {}", orderId);
+        } else {
+            log.info("Payment 데이터 없음 - orderId: {}", orderId);
+        }
+        
+        // 3. OrderItem 삭제 (마지막)
+        log.info("OrderItem 삭제 시작 - orderId: {}", orderId);
+        orderItemRepository.deleteByOrderId(orderId);
+        log.info("OrderItem 삭제 완료 - orderId: {}", orderId);
+        
+        // 4. 응답 데이터 생성
+        return OrderCancelRespDto.builder()
+                .orderId(orderId)
+                .orderNum(orderNum)
+                .previousStatus(previousStatus)
+                .canceledAt(canceledAt)
+                .message("주문이 성공적으로 취소되었습니다.")
+                .deletedOrderDetails(deletedOrderDetailsCount)
+                .paymentDeleted(paymentDeleted)
+                .build();
     }
     
 }
