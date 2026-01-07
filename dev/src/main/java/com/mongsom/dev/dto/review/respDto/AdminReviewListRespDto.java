@@ -39,6 +39,10 @@ public class AdminReviewListRespDto {
         private Integer reviewRating;      // 리뷰 평점
         private String reviewContent;      // 리뷰 내용 (요약)
         private Integer adminHidden;       // 숨김 상태 (0=정상, 1=숨김)
+        // 관리자 답변
+        private String adminAnswer;        // 관리자 답변
+        private String adminAnswerAt;      // 관리자 답변일자 (YYYY-MM-DD)
+        
         private String hiddenStatus;       // 숨김 상태 텍스트
         private LocalDateTime createdAt;   // 리뷰 작성일
         private LocalDateTime updatedAt;   // 수정일

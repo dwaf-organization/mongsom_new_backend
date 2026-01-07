@@ -25,6 +25,7 @@ public class AdminOrderListRespDto {
         private LocalDateTime paymentAt;     // 결제일시
         private Integer orderId;             // 주문 ID
         private String orderNum;             // 주문번호
+        private Long userCode;			 // 유저코드
         private String orderUser;            // 주문자 (user_mst.name)
         
         // 상품정보

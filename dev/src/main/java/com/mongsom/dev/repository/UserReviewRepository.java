@@ -24,6 +24,14 @@ public interface UserReviewRepository extends JpaRepository<UserReview, Integer>
            "ORDER BY ur.createdAt DESC")
     Page<UserReview> findByProductIdOrderByCreatedAtDesc(@Param("productId") Integer productId, Pageable pageable);
     
+    // 상품의 리뷰 조회 (평점 높은순, 페이징)
+    @Query("SELECT ur FROM UserReview ur " +
+           "JOIN FETCH ur.user u " +
+           "WHERE ur.productId = :productId " +
+           "AND ur.adminHidden = 0 " +
+           "ORDER BY ur.reviewRating DESC")
+    Page<UserReview> findByProductIdOrderByReviewRatingDesc(@Param("productId") Integer productId, Pageable pageable);
+    
     // 상품의 리뷰 개수 조회
     @Query("SELECT COUNT(ur) FROM UserReview ur WHERE ur.productId = :productId")
     Long countByProductId(@Param("productId") Integer productId);

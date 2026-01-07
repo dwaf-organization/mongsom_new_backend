@@ -181,6 +181,18 @@ public class OrderService {
 //                    .deliveryStatus("결제대기")           // 추가 정보
                     .build();
             
+            // 9. 장바구니 삭제
+            if ("무통장입금".equals(deliveryStatusReason)) {
+                log.info("=== 무통장입금 장바구니 삭제 시작 ===");
+                
+                int deletedCartCount = cartRepository.deleteByUserCode(reqDto.getUserCode());
+                log.info("장바구니 삭제 완료 - userCode: {}, 삭제된 항목 수: {}", 
+                        reqDto.getUserCode(), deletedCartCount);
+                
+            } else {
+                log.info("일반결제(카드) - 장바구니 삭제는 결제 승인 후 차감 예정");
+            }
+            
             return RespDto.<OrderCreateRespDto>builder()
                     .code(1)
                     .data(responseData)

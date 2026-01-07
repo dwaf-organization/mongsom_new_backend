@@ -103,14 +103,41 @@ public class ProductController {
     public ResponseEntity<RespDto<ProductReviewRespDto>> getProductReviews(
             @PathVariable("productCode") Integer productCode,
             @PathVariable("page") Integer page,
-            @RequestParam(value = "size", defaultValue = "10") Integer size) {
+            @RequestParam(value = "size", defaultValue = "10") Integer size,
+            @RequestParam(value = "sortBy", defaultValue = "latest") String sortBy) {
+        
+        log.info("=== 상품별 리뷰 조회 요청 ===");
+        log.info("productCode: {}, page: {}, size: {}, sortBy: {}", productCode, page, size, sortBy);
+        
         if (page < 1) {
             page = 1;
         }
+        
+        // sortBy 유효성 검증
+        if (!isValidSortBy(sortBy)) {
+            log.warn("잘못된 정렬 타입: {}", sortBy);
+            return ResponseEntity.badRequest().body(
+                RespDto.<ProductReviewRespDto>builder()
+                    .code(-1)
+                    .data(null)
+                    .build()
+            );
+        }
+        
         Pageable pageable = PageRequest.of(page - 1, size);
         
-        RespDto<ProductReviewRespDto> response = productService.getProductReviews(productCode, pageable);
+        RespDto<ProductReviewRespDto> response = productService.getProductReviews(productCode, pageable, sortBy);
         HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
+        
+        log.info("상품별 리뷰 조회 결과 - code: {}", response.getCode());
+        
         return ResponseEntity.status(status).body(response);
+    }
+    
+    /**
+     * sortBy 유효성 검증
+     */
+    private boolean isValidSortBy(String sortBy) {
+        return "latest".equals(sortBy) || "recommend".equals(sortBy);
     }
 }

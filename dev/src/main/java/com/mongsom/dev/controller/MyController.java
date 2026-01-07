@@ -237,7 +237,7 @@ public class MyController {
     /**
      * 전체 리뷰 목록 조회 (관리자, 숨김 포함)
      */
-    @GetMapping("/all")
+    @GetMapping("/review/all")
     public ResponseEntity<RespDto<AdminReviewListRespDto>> getAllReviews(
             @RequestParam(value = "page", defaultValue = "0") Integer page,
             @RequestParam(value = "size", defaultValue = "20") Integer size,

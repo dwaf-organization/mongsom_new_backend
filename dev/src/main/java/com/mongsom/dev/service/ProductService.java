@@ -310,22 +310,30 @@ public class ProductService {
                 .optionTypes(optionTypeDtos)
                 .build();
     }
-    
+
     //상품별리뷰조회
 	@Transactional(readOnly = true)
-	public RespDto<ProductReviewRespDto> getProductReviews(Integer productCode, Pageable pageable) {
+	public RespDto<ProductReviewRespDto> getProductReviews(Integer productCode, Pageable pageable, String sortBy) {
 	    try {
+	        log.info("상품 리뷰 조회 시작 - productCode: {}, sortBy: {}", productCode, sortBy);
+	        
 	        // 상품 존재 여부 확인
 	        Optional<Product> productOpt = productRepository.findById(productCode);
 	        if (productOpt.isEmpty()) {
+	            log.warn("존재하지 않는 상품 - productCode: {}", productCode);
 	            return RespDto.<ProductReviewRespDto>builder()
 	                    .code(-1)
 	                    .data(null)
 	                    .build();
 	        }
 	        
-	        // 상품 리뷰 조회 (페이징)
-	        Page<UserReview> reviewPage = userReviewRepository.findByProductIdOrderByCreatedAtDesc(productCode, pageable);
+	        // sortBy에 따른 리뷰 조회
+	        Page<UserReview> reviewPage;
+	        if ("recommend".equals(sortBy)) {
+	            reviewPage = userReviewRepository.findByProductIdOrderByReviewRatingDesc(productCode, pageable);
+	        } else { // "latest" 또는 기본값
+	            reviewPage = userReviewRepository.findByProductIdOrderByCreatedAtDesc(productCode, pageable);
+	        }
 	        
 	        if (reviewPage.isEmpty()) {
 	            return RespDto.<ProductReviewRespDto>builder()
@@ -367,6 +375,9 @@ public class ProductService {
 	        
 	        ProductReviewRespDto productReviewRespDto = ProductReviewRespDto.from(reviewItems, reviewPage);
 	        
+	        log.info("상품 리뷰 조회 성공 - productCode: {}, sortBy: {}, 조회된 리뷰 수: {}", 
+	                productCode, sortBy, reviewItems.size());
+	        
 	        //상품 리뷰 조회 성공
 	        return RespDto.<ProductReviewRespDto>builder()
 	                .code(1)
@@ -375,6 +386,7 @@ public class ProductService {
 	                
 	    } catch (Exception e) {
 	    	//상품 리뷰 조회 실패
+	        log.error("상품 리뷰 조회 실패 - productCode: {}, sortBy: {}", productCode, sortBy, e);
 	        return RespDto.<ProductReviewRespDto>builder()
 	                .code(-1)
 	                .data(null)

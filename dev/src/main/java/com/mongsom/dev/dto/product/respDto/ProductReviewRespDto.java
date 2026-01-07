@@ -45,6 +45,9 @@ public class ProductReviewRespDto {
         private LocalDateTime createdAt;
         private List<String> reviewImgUrls;
         
+        private String adminAnswer;        // 관리자 답변
+        private String adminAnswerAt;      // 관리자 답변일자 (YYYY-MM-DD)
+        
         public static ReviewItemDto from(UserReview review, String userName, List<String> reviewImgUrls) {
             return ReviewItemDto.builder()
                     .reviewId(review.getReviewId())
@@ -54,6 +57,8 @@ public class ProductReviewRespDto {
                     .reviewContent(review.getReviewContent())
                     .createdAt(review.getCreatedAt())
                     .reviewImgUrls(reviewImgUrls)
+                    .adminAnswer(review.getAdminAnswer())
+                    .adminAnswerAt(review.getAdminAnswerAt())
                     .build();
         }
     }

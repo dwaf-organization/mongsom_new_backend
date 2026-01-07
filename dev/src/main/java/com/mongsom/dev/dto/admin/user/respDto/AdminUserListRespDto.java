@@ -25,6 +25,7 @@ public class AdminUserListRespDto {
         private String name;
         private String email;
         private String phone;
+        private Integer mileage;
     }
     
     @Data

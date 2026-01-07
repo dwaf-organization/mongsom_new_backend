@@ -344,6 +344,8 @@ public class MyService {
                 .reviewRating(userReview != null ? userReview.getReviewRating() : null)
                 .reviewContent(userReview != null ? userReview.getReviewContent() : null)
                 .reviewImgUrls(reviewImgUrls)
+                .adminAnswer(userReview.getAdminAnswer())
+                .adminAnswerAt(userReview.getAdminAnswerAt())
                 .reviewCreatedAt(userReview != null ? userReview.getCreatedAt() : null)
                 .build();
     }
@@ -627,6 +629,8 @@ public class MyService {
                 .reviewRating(review.getReviewRating())
                 .reviewContent(contentSummary)
                 .adminHidden(review.getAdminHidden())
+                .adminAnswer(review.getAdminAnswer())
+                .adminAnswerAt(review.getAdminAnswerAt())
                 .hiddenStatus(review.isHidden() ? "숨김" : "정상")
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())

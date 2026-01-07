@@ -49,6 +49,7 @@ public class AdminUserService {
                             .name(user.getName())
                             .email(user.getEmail())
                             .phone(user.getPhone())
+                            .mileage(user.getMileage())
                             .build())
                     .collect(Collectors.toList());
             

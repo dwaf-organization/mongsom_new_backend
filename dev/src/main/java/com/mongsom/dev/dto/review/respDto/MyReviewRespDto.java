@@ -49,7 +49,12 @@ public class MyReviewRespDto {
         private Integer reviewRating;      // 리뷰 평점
         private String reviewContent;      // 리뷰 내용
         private List<String> reviewImgUrls; // 리뷰 이미지들
+        // 관리자 답변
+        private String adminAnswer;        // 관리자 답변
+        private String adminAnswerAt;      // 관리자 답변일자 (YYYY-MM-DD)
         private LocalDateTime reviewCreatedAt; // 리뷰 작성일
+        
+
     }
     
     @Data

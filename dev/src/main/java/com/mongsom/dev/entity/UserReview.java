@@ -49,6 +49,13 @@ public class UserReview {
     @Builder.Default
     private Integer adminHidden = 0; // 0=정상, 1=관리자 임의숨김
     
+    @Lob
+    @Column(name = "admin_answer", columnDefinition = "TEXT")
+    private String adminAnswer; // 관리자 답변
+    
+    @Column(name = "admin_answer_at", length = 50)
+    private String adminAnswerAt; // 관리자 답변일자 (YYYY-MM-DD 형식)
+    
     @CreationTimestamp
     @Column(name = "created_at")
     private LocalDateTime createdAt;

@@ -120,6 +120,7 @@ public class AdminOrderService {
                 .paymentAt(orderItem.getPaymentAt())
                 .orderId(orderItem.getOrderId())
                 .orderNum(orderItem.getOrderNum())
+                .userCode(userOpt.get().getUserCode())
                 .orderUser(orderUser)
                 .productInfo(productInfo)
                 .finalPrice(orderItem.getFinalPrice())
