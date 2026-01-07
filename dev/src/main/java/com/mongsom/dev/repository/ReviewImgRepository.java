@@ -38,4 +38,6 @@ public interface ReviewImgRepository extends JpaRepository<ReviewImg, Integer> {
      */
     @Query("SELECT ri.reviewImgUrl FROM ReviewImg ri WHERE ri.reviewId = :reviewId ORDER BY ri.createdAt")
     List<String> findImageUrlsByReviewId(@Param("reviewId") Integer reviewId);
+    
+    
 }

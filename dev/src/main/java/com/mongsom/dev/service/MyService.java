@@ -1,7 +1,9 @@
 package com.mongsom.dev.service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -520,9 +522,27 @@ public class MyService {
                 reviewPage = userReviewRepository.findAllByOrderByCreatedAtDesc(pageable);
             }
             
+            // 리뷰 ID 목록 추출 (N+1 문제 해결을 위해)
+            List<Integer> reviewIds = reviewPage.getContent().stream()
+                    .map(UserReview::getReviewId)
+                    .collect(Collectors.toList());
+            
+            // 리뷰 이미지들 한번에 조회
+            Map<Integer, List<String>> reviewImagesMap = new HashMap<>();
+            if (!reviewIds.isEmpty()) {
+                List<ReviewImg> reviewImgs = reviewImgRepository.findByReviewIdInOrderByReviewIdAndCreatedAt(reviewIds);
+                reviewImagesMap = reviewImgs.stream()
+                        .collect(Collectors.groupingBy(
+                                ReviewImg::getReviewId,
+                                Collectors.mapping(ReviewImg::getReviewImgUrl, Collectors.toList())
+                        ));
+            }
+            
+            // DTO 변환 (리뷰 이미지 포함)
+            final Map<Integer, List<String>> finalReviewImagesMap = reviewImagesMap;
             List<AdminReviewListRespDto.AdminReviewItemDto> reviews = reviewPage.getContent()
                     .stream()
-                    .map(this::convertToAdminReviewItemDto)
+                    .map(review -> convertToAdminReviewItemDto(review, finalReviewImagesMap))
                     .collect(Collectors.toList());
             
             AdminReviewListRespDto.PaginationDto pagination = AdminReviewListRespDto.PaginationDto.builder()
@@ -554,9 +574,9 @@ public class MyService {
     }
 
     /**
-     * UserReview를 AdminReviewItemDto로 변환 (수정됨)
+     * UserReview를 AdminReviewItemDto로 변환 (수정됨) - 리뷰 이미지 포함
      */
-    private AdminReviewListRespDto.AdminReviewItemDto convertToAdminReviewItemDto(UserReview review) {
+    private AdminReviewListRespDto.AdminReviewItemDto convertToAdminReviewItemDto(UserReview review, Map<Integer, List<String>> reviewImagesMap) {
         // 1. 사용자명 조회
         String userName = "알 수 없음";
         Optional<User> userOpt = userRepository.findByUserCode(review.getUserCode());
@@ -612,6 +632,9 @@ public class MyService {
             contentSummary = contentSummary.substring(0, 50) + "...";
         }
         
+        // 6. 리뷰 이미지 조회 (배치 처리)
+        List<String> reviewImgUrls = reviewImagesMap.getOrDefault(review.getReviewId(), new ArrayList<>());
+        
         return AdminReviewListRespDto.AdminReviewItemDto.builder()
                 .reviewId(review.getReviewId())
                 .userCode(review.getUserCode())
@@ -628,12 +651,13 @@ public class MyService {
                 .optionSummary(optionSummary)
                 .reviewRating(review.getReviewRating())
                 .reviewContent(contentSummary)
+                .reviewImgUrls(reviewImgUrls)
                 .adminHidden(review.getAdminHidden())
-                .adminAnswer(review.getAdminAnswer())
-                .adminAnswerAt(review.getAdminAnswerAt())
                 .hiddenStatus(review.isHidden() ? "숨김" : "정상")
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())
+                .adminAnswer(review.getAdminAnswer())
+                .adminAnswerAt(review.getAdminAnswerAt())
                 .build();
     }
 	

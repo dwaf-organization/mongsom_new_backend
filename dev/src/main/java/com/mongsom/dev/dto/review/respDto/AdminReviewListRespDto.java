@@ -38,6 +38,7 @@ public class AdminReviewListRespDto {
         
         private Integer reviewRating;      // 리뷰 평점
         private String reviewContent;      // 리뷰 내용 (요약)
+        private List<String> reviewImgUrls; // 리뷰 이미지들
         private Integer adminHidden;       // 숨김 상태 (0=정상, 1=숨김)
         // 관리자 답변
         private String adminAnswer;        // 관리자 답변
