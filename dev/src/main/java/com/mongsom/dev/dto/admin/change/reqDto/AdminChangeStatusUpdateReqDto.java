@@ -19,7 +19,7 @@ public class AdminChangeStatusUpdateReqDto {
     private Integer changeId;
     
     @NotBlank(message = "변경할 상태는 필수입니다.")
-    @Pattern(regexp = "^(반품신청|교환신청|반품중|교환중|반품완료|교환완료)$", 
-             message = "상태는 '반품신청', '교환신청', '반품중', '교환중', '반품완료', '교환완료' 중 하나여야 합니다.")
+    @Pattern(regexp = "^(반품신청|교환신청|교환승인|반품승인|교환반려|반품반려|반품중|교환중|반품완료|교환완료)$", 
+             message = "상태는 '반품신청', '교환신청', '교환승인', '반품승인', '교환반려', '반품반려','반품중', '교환중', '반품완료', '교환완료' 중 하나여야 합니다.")
     private String newStatus;
 }

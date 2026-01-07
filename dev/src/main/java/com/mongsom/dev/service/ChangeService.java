@@ -71,14 +71,14 @@ public class ChangeService {
             }
             
             // 4. 배송완료 상태 확인
-            if (!"배송완료".equals(orderItem.getDeliveryStatus())) {
-                log.warn("배송완료되지 않은 주문 - deliveryStatus: {}, orderId: {}", 
-                        orderItem.getDeliveryStatus(), orderItem.getOrderId());
-                return RespDto.<String>builder()
-                        .code(-3)
-                        .data("배송완료된 상품만 교환/반품 신청이 가능합니다.")
-                        .build();
-            }
+//            if (!"배송완료".equals(orderItem.getDeliveryStatus())) {
+//                log.warn("배송완료되지 않은 주문 - deliveryStatus: {}, orderId: {}", 
+//                        orderItem.getDeliveryStatus(), orderItem.getOrderId());
+//                return RespDto.<String>builder()
+//                        .code(-3)
+//                        .data("배송완료된 상품만 교환/반품 신청이 가능합니다.")
+//                        .build();
+//            }
             
             // 5. 중복 신청 체크
             if (changeItemRepository.existsByOrderDetailId(reqDto.getOrderDetailId())) {
