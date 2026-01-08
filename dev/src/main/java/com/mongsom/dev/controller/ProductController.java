@@ -138,6 +138,6 @@ public class ProductController {
      * sortBy 유효성 검증
      */
     private boolean isValidSortBy(String sortBy) {
-        return "latest".equals(sortBy) || "recommend".equals(sortBy);
+        return "latest".equals(sortBy) || "recommend".equals(sortBy) || "rating".equals(sortBy);
     }
 }

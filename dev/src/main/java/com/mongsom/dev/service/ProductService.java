@@ -331,6 +331,8 @@ public class ProductService {
 	        Page<UserReview> reviewPage;
 	        if ("recommend".equals(sortBy)) {
 	            reviewPage = userReviewRepository.findByProductIdOrderByReviewRatingDesc(productCode, pageable);
+	        } else if ("rating".equals(sortBy)) {
+	        	reviewPage = userReviewRepository.findByProductIdOrderByReviewRatingDesc(productCode, pageable);
 	        } else { // "latest" 또는 기본값
 	            reviewPage = userReviewRepository.findByProductIdOrderByCreatedAtDesc(productCode, pageable);
 	        }
