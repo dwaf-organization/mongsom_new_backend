@@ -3,40 +3,28 @@ package com.mongsom.dev.service.admin;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.mongsom.dev.common.dto.PaginationDto;
 import com.mongsom.dev.common.dto.RespDto;
 import com.mongsom.dev.dto.admin.product.reqDto.AdminProductRegistReqDto;
 import com.mongsom.dev.dto.admin.product.reqDto.AdminProductUpdateReqDto;
-import com.mongsom.dev.dto.admin.product.reqDto.ChangeApprovalReqDto;
-import com.mongsom.dev.dto.admin.product.reqDto.ProductRegistReqDto;
 import com.mongsom.dev.dto.admin.product.respDto.AdminProductDetailRespDto;
 import com.mongsom.dev.dto.admin.product.respDto.AdminProductListRespDto;
 import com.mongsom.dev.dto.admin.product.respDto.AdminProductRegistRespDto;
-import com.mongsom.dev.dto.admin.product.respDto.AdminProductSelectRespDto;
 import com.mongsom.dev.dto.admin.product.respDto.AdminProductUpdateRespDto;
-import com.mongsom.dev.dto.admin.product.respDto.ChangeProductListRespDto;
-import com.mongsom.dev.entity.ChangeItem;
 import com.mongsom.dev.entity.OptionCombinationMapping;
-import com.mongsom.dev.entity.OrderDetail;
-import com.mongsom.dev.entity.OrderItem;
 import com.mongsom.dev.entity.Product;
 import com.mongsom.dev.entity.ProductImg;
 import com.mongsom.dev.entity.ProductOptionCombination;
 import com.mongsom.dev.entity.ProductOptionType;
 import com.mongsom.dev.entity.ProductOptionValue;
 import com.mongsom.dev.repository.CartRepository;
-import com.mongsom.dev.repository.ChangeItemRepository;
 import com.mongsom.dev.repository.OptionCombinationMappingRepository;
 import com.mongsom.dev.repository.ProductImgRepository;
 import com.mongsom.dev.repository.ProductOptionCombinationRepository;
@@ -58,6 +46,7 @@ public class AdminProductService {
     private final ProductOptionValueRepository productOptionValueRepository;
     private final ProductOptionCombinationRepository productOptionCombinationRepository;
     private final OptionCombinationMappingRepository optionCombinationMappingRepository;
+    private final CartRepository cartRepository;
     
     /**
      * 상품 등록
@@ -496,6 +485,31 @@ public class AdminProductService {
             // 6. 최종 저장
             productRepository.save(product);
             log.info("=== 상품 수정 완료 - productId: {} ===", productId);
+            
+            // 장바구니 정리 로직
+            // 상품이 품절/일시정지되면 장바구니에서 해당 상품 삭제
+            if (reqDto.getStockStatus() == 0 || reqDto.getIsAvailable() == 0) {
+                int deletedCount = cartRepository.deleteByProductId(productId);
+                log.info("품절/일시정지 상품 장바구니 삭제 완료 - productId: {}, 삭제된 아이템: {}개", 
+                        productId, deletedCount);
+            }
+            
+            // 옵션이 품절되면 해당 옵션 장바구니에서 삭제
+            if (reqDto.getOptionTypes() != null) {
+                for (AdminProductUpdateReqDto.OptionTypeDto optionType : reqDto.getOptionTypes()) {
+                    if (optionType.getOptionValues() != null) {
+                        for (AdminProductUpdateReqDto.OptionValueDto optionValue : optionType.getOptionValues()) {
+                            // 품절된 옵션이면서 기존 옵션(ID가 있는 경우)인 경우에만 장바구니 삭제
+                            if (optionValue.getStockStatus() == 0 && optionValue.getOptionValueId() != null) {
+                                int deleted1 = cartRepository.deleteByOption1(optionValue.getOptionValueId());
+                                int deleted2 = cartRepository.deleteByOption2(optionValue.getOptionValueId());
+                                log.info("품절 옵션 장바구니 삭제 완료 - optionValueId: {}, 삭제된 아이템: {}개", 
+                                        optionValue.getOptionValueId(), (deleted1 + deleted2));
+                            }
+                        }
+                    }
+                }
+            }
             
             return RespDto.<AdminProductUpdateRespDto>builder()
                     .code(1)

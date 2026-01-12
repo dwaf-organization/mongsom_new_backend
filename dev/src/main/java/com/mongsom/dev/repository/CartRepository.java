@@ -133,5 +133,18 @@ public interface CartRepository extends JpaRepository<Cart, Integer> {
     @Query("SELECT COUNT(c) FROM Cart c WHERE c.userCode = :userCode AND c.checkStatus = 1")
     Long countCheckedItemsByUserCode(@Param("userCode") Long userCode);
     
+    /**
+     * 특정 옵션이 품절된 장바구니 아이템들 삭제 (옵션1 기준)
+     */
+    @Modifying
+    @Query("DELETE FROM Cart c WHERE c.option1 = :optionValueId")
+    int deleteByOption1(@Param("optionValueId") Integer optionValueId);
+    
+    /**
+     * 특정 옵션이 품절된 장바구니 아이템들 삭제 (옵션2 기준)  
+     */
+    @Modifying
+    @Query("DELETE FROM Cart c WHERE c.option2 = :optionValueId")
+    int deleteByOption2(@Param("optionValueId") Integer optionValueId);
     
 }
