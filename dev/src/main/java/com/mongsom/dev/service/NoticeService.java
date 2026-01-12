@@ -28,7 +28,7 @@ public class NoticeService {
     public RespDto<NoticeRespDto> getAllNotices(Pageable pageable) {
         try {
             log.info("공지사항 조회 시작 - page: {}, size: {}", 
-                    pageable.getPageNumber() + 1, pageable.getPageSize());
+                    pageable.getPageNumber(), pageable.getPageSize());
             
             Page<Notice> noticePage = noticeRepository.findAllOrderByCreatedAtDesc(pageable);
             

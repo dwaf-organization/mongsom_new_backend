@@ -39,6 +39,19 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 사용자ID, 이름, 휴대전화로 사용자 조회 (비밀번호 찾기용)
     Optional<User> findByUserIdAndNameAndPhone(String userId, String name, String phone);
 
+    /**
+     * 활성 사용자 검색 - 이름 또는 전화번호로 부분검색 (페이징)
+     * 
+     * @param searchItem 검색어 (이름 또는 전화번호 부분검색)
+     * @param pageable 페이징 정보
+     * @return 검색된 사용자 목록
+     */
+    @Query("SELECT u FROM User u " +
+           "WHERE u.status = 'ACTIVE' " +
+           "AND (u.name LIKE %:searchItem% OR u.phone LIKE %:searchItem%) " +
+           "ORDER BY u.userCode DESC")
+    Page<User> findActiveUsersByNameOrPhone(@Param("searchItem") String searchItem, Pageable pageable);
+    
     // 카카오 로그인 체크 - 이메일과 닉네임으로 사용자 조회
     @Query("SELECT u FROM User u " +
             "WHERE (u.email = :email OR u.userId = :email) " +

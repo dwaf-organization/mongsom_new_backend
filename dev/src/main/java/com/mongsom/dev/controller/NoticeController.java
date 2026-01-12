@@ -44,10 +44,6 @@ public class NoticeController {
         
         log.info("공지사항 조회 요청 - page: {}, size: {}", page, size);
         
-        // 페이지 번호 검증 (1-based를 0-based로 변환)
-        if (page < 1) {
-            page = 1;
-        }
         
         // 사이즈 검증
         if (size < 1) {
@@ -55,7 +51,7 @@ public class NoticeController {
         }
         
         // Pageable 객체 생성
-        Pageable pageable = PageRequest.of(page - 1, size);
+        Pageable pageable = PageRequest.of(page, size);
         
         RespDto<NoticeRespDto> response = noticeService.getAllNotices(pageable);
         HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;

@@ -30,16 +30,40 @@ public class AdminUserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     
-    // 관리자 회원 정보 조회 (페이지네이션)
-    public RespDto<AdminUserListRespDto> getUserList(Integer page, Integer size) {
+    /**
+     * 관리자 회원 정보 조회 (페이지네이션 + 검색)
+     * 
+     * @param page 페이지 번호 (1부터 시작)
+     * @param size 페이지 크기
+     * @param searchItem 검색어 (이름 또는 전화번호 부분검색, null/empty면 전체 조회)
+     * @return 회원 목록 및 페이지네이션 정보
+     */
+    public RespDto<AdminUserListRespDto> getUserList(Integer page, Integer size, String searchItem) {
         try {
-            log.info("=== 관리자 회원 정보 조회 시작 - page: {}, size: {} ===", page, size);
+            log.info("=== 관리자 회원 정보 조회 시작 - page: {}, size: {}, searchItem: '{}' ===", 
+                    page, size, searchItem);
             
             // 페이지 번호는 1부터 시작하지만 Spring Data JPA는 0부터 시작
-            Pageable pageable = PageRequest.of(page - 1, size, Sort.by("userCode").descending());
+            Pageable pageable = PageRequest.of(page, size, Sort.by("userCode").descending());
             
-            // 회원 정보 조회
-            Page<User> userPage = userRepository.findActiveUsers(pageable);
+            // 검색어 유무에 따른 조회 분기
+            Page<User> userPage;
+            
+            if (searchItem != null && !searchItem.trim().isEmpty()) {
+                // 검색어가 있는 경우: 이름 또는 전화번호로 검색
+                String trimmedSearchItem = searchItem.trim();
+                log.info("검색 조건 적용 - searchItem: '{}'", trimmedSearchItem);
+                
+                userPage = userRepository.findActiveUsersByNameOrPhone(trimmedSearchItem, pageable);
+                
+                log.info("검색 결과 - 총 {}건 중 {}페이지 조회, 조회된 사용자: {}명", 
+                        userPage.getTotalElements(), page, userPage.getNumberOfElements());
+                
+            } else {
+                // 검색어가 없는 경우: 전체 조회 (기존 로직)
+                log.info("전체 사용자 조회");
+                userPage = userRepository.findActiveUsers(pageable);
+            }
             
             // User 엔티티를 UserInfo DTO로 변환
             List<AdminUserListRespDto.UserInfo> userInfoList = userPage.getContent().stream()
@@ -67,8 +91,12 @@ public class AdminUserService {
                     .pagination(pagination)
                     .build();
             
-            log.info("=== 회원 정보 조회 완료 - 조회된 회원 수: {}, 전체 페이지: {}, 다음 페이지 존재: {} ===", 
-                    userInfoList.size(), userPage.getTotalPages(), userPage.hasNext());
+            String searchInfo = (searchItem != null && !searchItem.trim().isEmpty()) 
+                    ? String.format("검색어: '%s', ", searchItem.trim())
+                    : "";
+            
+            log.info("=== 회원 정보 조회 완료 - {}조회된 회원 수: {}, 전체 페이지: {}, 다음 페이지 존재: {} ===", 
+                    searchInfo, userInfoList.size(), userPage.getTotalPages(), userPage.hasNext());
             
             return RespDto.<AdminUserListRespDto>builder()
                     .code(1)
@@ -76,7 +104,8 @@ public class AdminUserService {
                     .build();
             
         } catch (Exception e) {
-            log.error("회원 정보 조회 실패 - page: {}, size: {}, error: {}", page, size, e.getMessage(), e);
+            log.error("회원 정보 조회 실패 - page: {}, size: {}, searchItem: '{}', error: {}", 
+                    page, size, searchItem, e.getMessage(), e);
             
             return RespDto.<AdminUserListRespDto>builder()
                     .code(-1)
