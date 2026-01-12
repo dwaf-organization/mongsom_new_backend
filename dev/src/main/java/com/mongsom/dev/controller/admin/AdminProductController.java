@@ -99,11 +99,11 @@ public class AdminProductController {
         
         // 페이지 번호 검증 (1-based를 0-based로 변환)
         if (page < 1) {
-            page = 1;
+            page = 0;
         }
         
         RespDto<AdminProductListRespDto> response = adminProductService.getProductList(
-                page - 1, size, name, premium, outOfStock, paused);
+                page, size, name, premium, outOfStock, paused);
         
         HttpStatus status = response.getCode() == 1 ? HttpStatus.OK : HttpStatus.BAD_REQUEST;
         

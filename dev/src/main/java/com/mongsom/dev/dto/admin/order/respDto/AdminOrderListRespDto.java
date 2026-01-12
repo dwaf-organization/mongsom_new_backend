@@ -34,6 +34,7 @@ public class AdminOrderListRespDto {
         private Integer finalPrice;          // 최종 결제금액
         private String paymentStatus;        // 결제상태 (payments 테이블)
         private String deliveryStatus;       // 배송상태 (order_item 테이블)
+        private String invoiceNum;			 // 배송번호
     }
     
     @Data

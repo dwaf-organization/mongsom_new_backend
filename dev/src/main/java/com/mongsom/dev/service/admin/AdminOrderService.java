@@ -126,6 +126,7 @@ public class AdminOrderService {
                 .finalPrice(orderItem.getFinalPrice())
                 .paymentStatus(paymentStatus)
                 .deliveryStatus(orderItem.getDeliveryStatus())
+                .invoiceNum(orderItem.getInvoiceNum())
                 .build();
     }
     
