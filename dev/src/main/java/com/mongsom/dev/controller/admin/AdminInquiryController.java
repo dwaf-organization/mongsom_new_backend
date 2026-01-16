@@ -22,6 +22,7 @@ public class AdminInquiryController {
     
     private final AdminInquiryService adminInquiryService;
     
+    
     /**
      * 관리자 견적문의 목록 조회 (페이지네이션)
      * GET /api/v1/admin/inquiry/list/{page}/{size}
