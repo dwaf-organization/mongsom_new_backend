@@ -32,6 +32,12 @@ public class Inquiry {
     @Column(name = "category", nullable = false, length = 255)
     private String category;
     
+    @Column(name = "product_id")
+    private Integer productId;
+    
+    @Column(name = "name", length = 255)
+    private String name;
+    
     @Column(name = "phone", nullable = false, length = 255)
     private String phone;
     

@@ -30,6 +30,8 @@ public class InquiryService {
             
             Inquiry inquiry = Inquiry.builder()
                     .category(reqDto.getCategory())
+                    .productId(reqDto.getProductId())
+                    .name(reqDto.getName())
                     .phone(reqDto.getPhone())
                     .email(reqDto.getEmail())
                     .companyName(reqDto.getCompanyName())

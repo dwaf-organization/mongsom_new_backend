@@ -42,6 +42,8 @@ public class AdminInquiryService {
                     .map(inquiry -> AdminInquiryListRespDto.InquiryInfo.builder()
                             .inquiryId(inquiry.getInquiryId())
                             .category(inquiry.getCategory())
+                            .ProductId(inquiry.getProductId())
+                            .name(inquiry.getName())
                             .phone(inquiry.getPhone())
                             .email(inquiry.getEmail())
                             .companyName(inquiry.getCompanyName())

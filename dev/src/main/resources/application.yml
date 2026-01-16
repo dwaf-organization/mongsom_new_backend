@@ -48,11 +48,11 @@ spring:
           starttls:
             enable: true
 
-#toss:
-#  secret-key: live_sk_d46qopOB89jZnmlaYEqE3ZmM75y0
-
 toss:
-  secret-key: test_sk_Ba5PzR0Arnym4RbJ9RpvVvmYnNeD
+  secret-key: live_sk_d46qopOB89jZnmlaYEqE3ZmM75y0
+
+#toss:
+#  secret-key: test_sk_Ba5PzR0Arnym4RbJ9RpvVvmYnNeD
 
 naver:
   client-id: JKQvPJoj1kRYRAmSvI6n

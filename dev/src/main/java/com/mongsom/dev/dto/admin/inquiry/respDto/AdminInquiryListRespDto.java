@@ -23,6 +23,8 @@ public class AdminInquiryListRespDto {
     public static class InquiryInfo {
         private Integer inquiryId;
         private String category;
+        private Integer ProductId;
+        private String name;
         private String phone;
         private String email;
         private String companyName;
